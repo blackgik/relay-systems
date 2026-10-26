@@ -1,0 +1,656 @@
+/**
+ * Design token CSS custom properties — Qwiva design system.
+ *
+ * Three-layer structure:
+ *   Layer 1 — Primitives: raw named values (--prim-*)
+ *   Layer 2 — Semantic: adaptive aliases that flip in dark mode
+ *   Layer 3 — Component: intentionally fixed (--badge-*, --avatar-*, etc.)
+ *
+ * Values are stored as "H S% L%" (space-separated HSL, no wrapper) so that
+ * Tailwind's opacity modifier works: bg-brand/50 → hsl(var(--brand) / 0.5)
+ *
+ * Decisions applied:
+ *   D1: signal amber (#F59E0B) — distinct from brand; not for borders/focus
+ *   D2: foreground=#5C5C70 (neutral-600), muted-foreground=#76768E (neutral-500)
+ *   D3: brand-subtle=#DDF2F5 (Harbor/50; retire primary-50 / primary-bg / #DDF2F5)
+ *   D4: info-text=#175CD3 (unified from #1570EF)
+ *   D5: camera badge one-offs map to primary-dark — no new vars needed
+ *   D6: --text-secondary=#3E6B7A (notification subtitle)
+ */
+
+/* =========================================================================
+   Layer 1 — Primitive values (referenced by Layer 2; not used in components)
+   ========================================================================= */
+
+:root {
+  /* Neutral — canonical 240° scale. Merged 2026-06-24 from the former legacy
+     `cool-gray` Tailwind scale, which is now renamed `neutral` and references
+     these vars. Values are the cool-gray (violet-leaning, H≈240°) hexes; the
+     prior 210–220° blue-leaning values were retired. The Tailwind `neutral-*`
+     classes resolve from these stops, so they are the single source of truth. */
+  --prim-neutral-0:   0 0% 100%;      /* #ffffff */
+  --prim-neutral-25:  240 33% 99%;    /* #FAFAFD */
+  --prim-neutral-50:  240 33% 98%;    /* #F7F7FC — was #F9FAFB (210° blue) */
+  --prim-neutral-100: 240 25% 95%;    /* #EEEEF7 — canonical muted bg (was #f5f6f7) */
+  --prim-neutral-150: 213 11% 93%;    /* #ebedef — = disable.bg */
+  --prim-neutral-200: 240 22% 89%;    /* #DCDCEA — was #e4e6e9 */
+  --prim-neutral-300: 240 18% 80%;    /* #C2C2D9 — canonical border (was #c8ccd2) */
+  --prim-neutral-400: 240 16% 67%;    /* #9D9DBC — placeholder text (was #a3a8b0) */
+  --prim-neutral-500: 240 11% 49%;    /* #76768E — muted text (was #7e848e) */
+  --prim-neutral-600: 240 11% 39%;    /* #5C5C70 — body text / foreground (was #525861) */
+  --prim-neutral-700: 240 11% 31%;    /* #454555 — was #2e323a */
+  --prim-neutral-800: 240 12% 23%;    /* #33333F — was #16191f */
+  --prim-neutral-900: 240 13% 16%;    /* #222229 — true dark step (light-bg anomaly resolved) */
+  --prim-neutral-950: 240 14% 10%;    /* #15151A — darkest step */
+  --prim-neutral-20:  233 9% 20%;     /* #2F3038 — tooltip bg (off-scale legacy neutral.20) */
+
+  /* Harbor / brand */
+  --prim-harbor-900:   195 74% 17%;     /* #0B3B4B — brand harbor */
+  --prim-harbor-dark:  194 75% 13%;     /* #072A35 — hover/focus; harbor, not signal */
+  --prim-harbor-dm:    196 64% 24%;     /* #1F6E80 — dark-mode brand surface */
+  --prim-harbor-bg:    195 72% 85%;    /* #DDF2F5 — LEGACY; brand-subtle now uses --prim-harbor-50 */
+  --prim-harbor-50:    192 55% 91%;  /* #DDF2F5 — Harbor/50; subtle selected surface */
+  --prim-harbor-light: 193 48% 60%;     /* #79C4D2 */
+
+  /* Signal amber — D1: distinct from brand; accent only */
+  --prim-signal-500:   38 92% 50%;     /* #F59E0B */
+
+  /* Green */
+  --prim-green-50:   145 82% 96%;     /* #ECFDF3 */
+  --prim-green-500:  152 82% 39%;     /* #12b76a — updated from #18BB0C (LEGACY) */
+  --prim-green-600:  153 96% 30%;     /* #039855 — updated from #008A00 (LEGACY) */
+  --prim-green-700:  155 97% 24%;     /* #027a48 — green.700 = badge.success.text */
+  --prim-green-900:  156 88% 16%;     /* #054f31 — Figma green.900 (was holding green.700 value) */
+
+  /* Red / error */
+  --prim-red-50:     5 85% 97%;       /* #FEF3F2 */
+  --prim-red-500:    4 86% 58%;       /* #f04438 — updated from #FF4747 (LEGACY) */
+  --prim-red-900:    4 77% 40%;       /* #B42318 */
+  --prim-error-one:  4 86% 58%;       /* #F04438 — error button bg */
+  --prim-error-two:  4 96% 80%;       /* #FDA29B — error muted ring */
+
+  /* Warning / amber */
+  --prim-amber-text: 22 92% 37%;      /* #B54708 */
+  --prim-amber-bg:   45 100% 96%;     /* #FFFAEB */
+
+  /* Blue */
+  --prim-blue-700:   215 81% 46%;     /* #1666d4 — blue.700 (updated from #175cd3) */
+
+  /* Info blue — D4: unified to #175CD3 (LEGACY — kept for badge/component Layer 3 refs) */
+  --prim-info-text:  218 80% 46%;     /* #175CD3 */
+  --prim-info-bg:    206 100% 97%;    /* #EFF8FF */
+
+  /* Disabled */
+  --prim-disable-bg:   214 11% 93%;   /* #EBEDEF */
+  --prim-disable-text: 217 8% 66%;    /* #A3A8B0 */
+
+  /* Text secondary — D6: off-scale custom value; no named stop in any scale */
+  --prim-text-secondary: 209 28% 37%; /* #3E6B7A — notification subtitle */
+
+  /* -----------------------------------------------------------------------
+     Layer 3 — Component tokens (raw hex — intentionally fixed, no HSL split)
+     These do NOT have dark-mode variants in .dark {}.
+     ----------------------------------------------------------------------- */
+
+  /* Badge */
+  --badge-success-text: #027A48;
+  --badge-success-bg:   #ECFDF3;
+  --badge-warning-text: #B54708;
+  --badge-warning-bg:   #FFFAEB;
+  --badge-error-text:   #B42318;
+  --badge-error-bg:     #FEF3F2;
+  --badge-neutral-text: #344054;
+  --badge-neutral-bg:   #F2F4F7;
+  --badge-info-text:    #175CD3;  /* D4 */
+  --badge-info-bg:      #EFF8FF;
+  --badge-purple-text:  #6941C6;
+  --badge-purple-bg:    #F4F3FF;
+  --badge-teal-text:    #005649;
+  --badge-teal-bg:      #E0FFF8;
+  --badge-harbor-text:  #145665;
+  --badge-harbor-bg:    #DDF2F5;
+
+  /* Avatar */
+  --avatar-inactive-bg:   #D1E9FF;
+  --avatar-inactive-text: #194185;
+  --avatar-staff-bg:      #E0FFF8;
+  --avatar-staff-text:    #005649;
+  /* Purple conflict resolved: canonical #F4F3FF (was #EBE9FE) */
+  --avatar-customer-bg:   #F4F3FF;
+  --avatar-customer-text: #3E1C96;
+  --avatar-active-dot:    #38C793;
+  --avatar-inactive-dot:  #868C98;
+
+  /* Toggle */
+  --toggle-bg:     #F2F4F7;
+  --toggle-border: var(--border-subtle);
+
+  /* Prescription */
+  --prescription-bg:   #ECF8FF;
+  --prescription-text: #003061;
+
+  /* Role badge */
+  --role-badge-bg:   #F4F3FF;
+  --role-badge-text: #5925DC;
+
+  /* Selected state */
+  --selected-light: #B4E5FF;
+  --selected-bg:    #D8EFF4;
+
+  /* Input component */
+  --input-bg:             var(--prim-neutral-0);
+  --input-border:         var(--prim-neutral-300); /* #D9DBE9 — canonical border */
+  --input-border-focus:   var(--prim-harbor-dark); /* #072A35 harbor — NOT signal */
+  --input-placeholder:    var(--prim-neutral-400);
+
+  /* ── Table ─────────────────────────────────────────── */
+  --table-header-bg:    var(--muted);
+  --table-header-text:  var(--text-primary);
+  --table-row-bg:       var(--background);
+  --table-row-hover:    var(--surface-hover);
+  --table-row-alt:      var(--muted);
+  --table-border:       var(--border-subtle);
+  --table-sticky-bg:    var(--background);
+
+  /* ── Navigation ─────────────────────────────────────── */
+  --nav-bg:               var(--background);
+  --nav-border:           var(--border-subtle);
+  --nav-item-text:        var(--muted-foreground);
+  --nav-item-text-active: var(--brand);
+  --nav-item-bg-hover:    var(--surface-hover);
+  --nav-item-bg-active:   var(--surface-selected);
+  --nav-item-indicator:   var(--brand);
+
+  /* Skeleton loader animation */
+  --skeleton-from: #ebebeb;
+  --skeleton-to:   #c5c5c5;
+
+  /* Button component */
+  --btn-primary-bg:   #0B3B4B;
+  --btn-primary-text: #ffffff;
+
+  /* Checkbox */
+  --checkbox-border:   var(--border-subtle);
+  --checkbox-checked:  #0B3B4B;
+
+  /* Misc */
+  /* Shadow tokens */
+  --shadow-sticky-col:  -2px 0 4px rgba(0, 0, 0, 0.1);
+
+  /* DEPRECATED — replaced by --overlay-bg (Layer 2) + Tailwind opacity modifier.
+     Kept for backward compat only; do not use in new code. */
+  --overlay-color:      rgba(4, 14, 38, 0.502);
+  --modal-close:        #999CA0;
+  --nav-active:         #122A33;
+  --tab-bg:             #F7F7FC;
+  /* D6: notification subtitle — between muted-foreground (#76768E) and brand (#0B3B4B) */
+  --text-secondary:     #3E6B7A;
+  /* D1: signal amber — for non-Tailwind contexts (react-select, Recharts) */
+  --accent-signal:        #F59E0B;
+  /* D3 (revised 2026-08-09): brand-subtle bg — now on-scale at Harbor/50 */
+  --brand-subtle:       #DDF2F5;
+  --add-btn-bg:         #ECF8FF;
+
+  /* ─── Dark primitive scale ─────────────────────────────────────── */
+  /* Mirror of the light primitive scale — values are inverted-lightness
+     equivalents designed for use inside .dark {} semantic overrides.
+     Naming: --prim-dark-{scale}-{stop}
+     Do not use these directly in components — reference via semantic tokens. */
+
+  /* Dark Neutral (H≈220–222°, S=14–28% — cool blue-dark character) */
+  --prim-dark-neutral-0:   222 18% 7%;    /* #0e1117 — page bg anchor */
+  --prim-dark-neutral-25:  222 18% 9%;    /* #121823 */
+  --prim-dark-neutral-50:  222 22% 12%;   /* #161c28 — card / popover bg */
+  --prim-dark-neutral-100: 222 28% 15%;   /* #1c2333 — muted bg */
+  --prim-dark-neutral-200: 222 24% 19%;   /* #252d3d — subtle border */
+  --prim-dark-neutral-300: 220 22% 26%;   /* #313b4f — border */
+  --prim-dark-neutral-400: 218 16% 36%;   /* #4a5568 — strong border / placeholder */
+  --prim-dark-neutral-500: 215 14% 52%;   /* #718096 — muted text */
+  --prim-dark-neutral-600: 215 24% 69%;   /* #a0aec0 — body text */
+  --prim-dark-neutral-700: 215 25% 82%;   /* #cbd5e0 — strong text */
+  --prim-dark-neutral-800: 215 27% 90%;   /* #e2e8f0 — near-white text */
+  --prim-dark-neutral-900: 213 43% 95%;   /* #edf2f7 */
+
+  /* Dark Harbor (H≈195°; dark-mode brand surface at stop 400) */
+  --prim-dark-harbor-25:  195 70% 5%;       /* #041611 */
+  --prim-dark-harbor-50:  195 72% 9%;      /* #06271f */
+  --prim-dark-harbor-100: 194 68% 14%;      /* #0b3c2f — brand-subtle dark */
+  --prim-dark-harbor-200: 194 66% 20%;      /* #115544 */
+  --prim-dark-harbor-300: 193 62% 27%;      /* #1a705b — brand-focus dark */
+  --prim-dark-harbor-400: 192 60% 30%;      /* #1f7b68 — primary brand surface dark */
+  --prim-dark-harbor-500: 192 55% 40%;      /* #2e9e88 — ring dark */
+  --prim-dark-harbor-600: 192 50% 52%;      /* #47c2a9 */
+  --prim-dark-harbor-700: 192 52% 62%;      /* #6cd0bc */
+  --prim-dark-harbor-800: 190 60% 70%;      /* #85e0d1 */
+  --prim-dark-harbor-900: 190 70% 77%;      /* #9be9e0 */
+  --prim-dark-harbor-950: 190 75% 84%;      /* #b8f0eb */
+  --prim-dark-harbor-bg:  194 68% 14%;      /* #0b3c2f — brand-subtle dark (= dark harbor-100) */
+
+  /* Dark Teal Palette (H≈172–174°; vivid aqua inverted) */
+  --prim-dark-teal-25:  172 85% 5%;       /* #011a17 */
+  --prim-dark-teal-50:  172 78% 10%;      /* #022b25 */
+  --prim-dark-teal-100: 172 85% 14%;      /* #044038 */
+  --prim-dark-teal-200: 172 86% 20%;      /* #075e52 */
+  --prim-dark-teal-300: 173 84% 28%;      /* #0a8070 */
+  --prim-dark-teal-400: 174 82% 36%;      /* #0fa895 */
+  --prim-dark-teal-500: 174 80% 42%;      /* #14c4af — default */
+  --prim-dark-teal-600: 174 74% 46%;      /* #1dcdb8 */
+  --prim-dark-teal-700: 174 67% 54%;      /* #38d9c4 */
+  --prim-dark-teal-800: 174 68% 63%;      /* #5de3d1 */
+  --prim-dark-teal-900: 174 68% 74%;      /* #89ede1 */
+  --prim-dark-teal-950: 174 76% 83%;      /* #b3f4ec */
+
+  /* Dark Signal Accent — D1 (H=43°, lightened for dark bg visibility) */
+  --prim-dark-signal-accent: 43 96% 56%;  /* #FBBF24 */
+
+  /* Dark Green (feedback; inversion: light 500↔dark 500 near midpoint) */
+  --prim-dark-green-25:  142 86% 9%;      /* #032b14 */
+  --prim-dark-green-50:  156 88% 16%;     /* #054f31 — success-subtle dark */
+  --prim-dark-green-100: 152 89% 20%;     /* #05603a */
+  --prim-dark-green-200: 155 97% 24%;     /* #027a48 */
+  --prim-dark-green-300: 153 96% 30%;     /* #039855 */
+  --prim-dark-green-400: 152 82% 39%;     /* #12b76a */
+  --prim-dark-green-500: 149 63% 52%;     /* #32d583 — success dark */
+  --prim-dark-green-600: 149 71% 67%;     /* #6ce9a6 */
+  --prim-dark-green-700: 149 80% 80%;     /* #a6f4c5 — success-text dark (66:1 contrast) */
+  --prim-dark-green-800: 144 85% 90%;     /* #d1fadf */
+  --prim-dark-green-900: 145 82% 96%;     /* #ecfdf3 */
+  --prim-dark-green-950: 140 86% 98%;     /* #f6fef9 */
+
+  /* Dark Red (feedback; H≈4° preserved throughout) */
+  --prim-dark-red-25:  3 55% 10%;         /* #2b0a09 */
+  --prim-dark-red-50:  3 60% 15%;         /* #3f1110 — destructive-subtle dark */
+  --prim-dark-red-100: 0 60% 21%;         /* #551616 */
+  --prim-dark-red-200: 4 63% 29%;         /* #7a271a */
+  --prim-dark-red-300: 4 73% 34%;         /* #912018 — destructive-muted dark */
+  --prim-dark-red-400: 4 77% 40%;         /* #b42318 */
+  --prim-dark-red-500: 4 70% 47%;         /* #d92d20 — destructive dark (14:1 contrast) */
+  --prim-dark-red-600: 4 86% 58%;         /* #f04438 */
+  --prim-dark-red-700: 4 91% 69%;         /* #f97066 */
+  --prim-dark-red-800: 4 96% 80%;         /* #fda29b */
+  --prim-dark-red-900: 3 97% 90%;         /* #fecdca */
+  --prim-dark-red-950: 0 97% 94%;         /* #fee2e2 */
+
+  /* Dark Yellow / Amber (feedback; warning-text at stop 700 = pale amber) */
+  --prim-dark-yellow-25:  38 100% 6%;     /* #1f1200 */
+  --prim-dark-yellow-50:  37 100% 8%;     /* #2b1a00 */
+  --prim-dark-yellow-100: 36 100% 12%;    /* #3d2400 — warning-subtle dark */
+  --prim-dark-yellow-200: 35 100% 17%;    /* #573200 */
+  --prim-dark-yellow-300: 35 100% 24%;    /* #7a4500 */
+  --prim-dark-yellow-400: 34 100% 31%;    /* #a05a00 */
+  --prim-dark-yellow-500: 33 100% 40%;    /* #ca7200 — warning dark */
+  --prim-dark-yellow-600: 38 93% 50%;     /* #f59e0b */
+  --prim-dark-yellow-700: 38 93% 77%;     /* #fbd38d — warning-text dark (45:1 contrast) */
+  --prim-dark-yellow-800: 38 93% 88%;     /* #fde8c3 */
+  --prim-dark-yellow-900: 40 95% 93%;     /* #fef3d9 */
+  --prim-dark-yellow-950: 40 100% 97%;    /* #fff8eb */
+
+  /* Harbor (feedback; info-text at stop 700) */
+  --prim-dark-blue-25:  213 87% 6%;       /* #020c1a */
+  --prim-dark-blue-50:  213 82% 9%;       /* #051525 */
+  --prim-dark-blue-100: 213 78% 12%;      /* #082136 — info-subtle dark */
+  --prim-dark-blue-200: 213 74% 20%;      /* #0d3158 */
+  --prim-dark-blue-300: 217 78% 36%;      /* #1449a0 */
+  --prim-dark-blue-400: 215 76% 42%;      /* #1a5bbf */
+  --prim-dark-blue-500: 214 72% 49%;      /* #2176d9 — info dark (12:1 contrast) */
+  --prim-dark-blue-600: 212 74% 61%;      /* #4e9fe8 */
+  --prim-dark-blue-700: 211 79% 70%;      /* #76b8f0 — info-text dark (29:1 contrast) */
+  --prim-dark-blue-800: 207 82% 76%;      /* #90cdf4 */
+  --prim-dark-blue-900: 207 87% 86%;      /* #bee3fb */
+  --prim-dark-blue-950: 204 90% 93%;      /* #daf0fd */
+
+  /* Dark Purple */
+  --prim-dark-purple-25:  250 55% 11%;    /* #0d0a2e */
+  --prim-dark-purple-50:  252 64% 18%;    /* #13104a */
+  --prim-dark-purple-100: 253 61% 25%;    /* #1a1669 */
+  --prim-dark-purple-200: 253 64% 33%;    /* #231e8a */
+  --prim-dark-purple-300: 253 62% 47%;    /* #3a2fc0 */
+  --prim-dark-purple-400: 252 66% 57%;    /* #5548d9 */
+  --prim-dark-purple-500: 250 74% 65%;    /* #7062e8 */
+  --prim-dark-purple-600: 250 80% 72%;    /* #9080f2 */
+  --prim-dark-purple-700: 250 83% 81%;    /* #b3a4f7 */
+  --prim-dark-purple-800: 249 88% 87%;    /* #c8befa */
+  --prim-dark-purple-900: 249 88% 92%;    /* #ddd8fc */
+  --prim-dark-purple-950: 249 100% 97%;   /* #f0eeff */
+
+  /* Dark Orange */
+  --prim-dark-orange-25:  24 100% 6%;     /* #1f0d00 */
+  --prim-dark-orange-50:  28 100% 8%;     /* #2b1500 */
+  --prim-dark-orange-100: 29 100% 12%;    /* #3d1e00 */
+  --prim-dark-orange-200: 29 100% 17%;    /* #572b00 */
+  --prim-dark-orange-300: 30 100% 24%;    /* #7a3d00 */
+  --prim-dark-orange-400: 31 100% 31%;    /* #a05200 */
+  --prim-dark-orange-500: 28 82% 44%;     /* #cc6a14 */
+  --prim-dark-orange-600: 24 75% 60%;     /* #e8824a */
+  --prim-dark-orange-700: 24 81% 71%;     /* #f2a67a */
+  --prim-dark-orange-800: 27 83% 81%;     /* #f7c8a5 */
+  --prim-dark-orange-900: 27 87% 89%;     /* #fbe0cc */
+  --prim-dark-orange-950: 29 92% 95%;     /* #fef2e8 */
+
+  /* Dark Rose (H≈312–320°) */
+  --prim-dark-rose-25:  320 80% 9%;       /* #280516 */
+  --prim-dark-rose-50:  320 75% 13%;      /* #3a0920 */
+  --prim-dark-rose-100: 319 73% 19%;      /* #520d2d */
+  --prim-dark-rose-200: 318 72% 26%;      /* #701442 */
+  --prim-dark-rose-300: 318 70% 35%;      /* #941b5a */
+  --prim-dark-rose-400: 316 69% 43%;      /* #b82274 */
+  --prim-dark-rose-500: 315 67% 52%;      /* #d92d8e */
+  --prim-dark-rose-600: 312 83% 60%;      /* #ee46bc */
+  --prim-dark-rose-700: 315 88% 70%;      /* #f670c7 */
+  --prim-dark-rose-800: 317 88% 82%;      /* #faa7e0 */
+  --prim-dark-rose-900: 313 73% 95%;      /* #fce7f6 */
+  --prim-dark-rose-950: 313 60% 96%;      /* #fdf2fa */
+
+  /* Dark Lavender (H≈258–260°) */
+  --prim-dark-lavender-25:  260 55% 9%;   /* #0d0824 */
+  --prim-dark-lavender-50:  260 60% 14%;  /* #150f3a */
+  --prim-dark-lavender-100: 260 56% 22%;  /* #1f1857 */
+  --prim-dark-lavender-200: 258 55% 33%;  /* #2d2480 */
+  --prim-dark-lavender-300: 260 56% 45%;  /* #4130b3 */
+  --prim-dark-lavender-400: 260 64% 56%;  /* #6148d4 */
+  --prim-dark-lavender-500: 258 72% 65%;  /* #8264e8 */
+  --prim-dark-lavender-600: 258 78% 74%;  /* #a48bf2 */
+  --prim-dark-lavender-700: 259 82% 83%;  /* #c3b0f7 */
+  --prim-dark-lavender-800: 258 83% 91%;  /* #ddd4fb */
+  --prim-dark-lavender-900: 258 89% 96%;  /* #f0ecfe */
+  --prim-dark-lavender-950: 258 100% 98%; /* #f8f6ff */
+
+  /* Dark misc — semantic helper vars (back Layer 2 .dark {} tokens directly) */
+  --prim-dark-amber-text:       38 93% 77%;   /* #fbd38d — warning-text dark */
+  --prim-dark-amber-bg:         35 100% 17%;  /* #573200 — warning-subtle dark (stop 200: ΔL=8% from bg) */
+  --prim-dark-info-bg:          213 78% 12%;  /* #082136 — info-subtle dark */
+  --prim-dark-text-secondary:   209 28% 65%;  /* #8da7bf — lightened D6 value for dark surfaces */
+  --prim-dark-disable-bg:       220 15% 20%;  /* dark disabled surface */
+  --prim-dark-disable-text:     217 12% 45%;  /* dark disabled text */
+
+  /* Dark achromatic — pure neutral greys for CSS animations (skeleton pulse).
+     No hue shift — S=0% so these are true greyscale values. */
+  --prim-dark-achromatic-300:   0 0% 17%;     /* #2a2a2a — skeleton-from dark */
+  --prim-dark-achromatic-500:   0 0% 24%;     /* #3d3d3d — skeleton-to dark */
+}
+
+/* =========================================================================
+   Layer 2 — Semantic tokens (light mode — default)
+   Values are H S% L% for Tailwind `hsl(var(--x) / <alpha-value>)` consumption.
+   All tokens now reference --prim-* vars — zero bare HSL in this block.
+   ========================================================================= */
+
+:root {
+  /* Surfaces */
+  --background:            var(--prim-neutral-0);    /* bg-background — #ffffff */
+  /* D2: foreground = neutral-600 (#5C5C70), not neutral-700 (#262338) */
+  --foreground:            var(--prim-neutral-600);  /* text-foreground — #5C5C70 */
+
+  --card:                  var(--prim-neutral-0);    /* bg-card (modals, elevated cards) */
+  --card-foreground:       var(--prim-neutral-600);  /* #5C5C70 */
+
+  --popover:               var(--prim-neutral-0);    /* bg-popover (dropdowns, tooltips) */
+  --popover-foreground:    var(--prim-neutral-600);  /* #5C5C70 */
+  --tooltip-bg:            var(--prim-neutral-20);   /* #2F3038 — dark surface for tooltip bubble */
+
+  --surface:               var(--prim-neutral-50);   /* bg-surface — #F7F7FC — page/dashboard/POS bg */
+  --muted:                 var(--prim-neutral-100);  /* bg-muted — #EEEEF7 */
+  /* D2: muted-foreground = neutral-500 (#76768E) */
+  --muted-foreground:      var(--prim-neutral-500);  /* text-muted-foreground — #76768E */
+
+  /* Disabled states */
+  --surface-disabled:      var(--prim-disable-bg);   /* #EBEDEF — disabled control surface */
+  --text-disabled:         var(--prim-neutral-300);  /* #c8ccd2 — disabled control text (lighter than tertiary) */
+
+  /* Interaction surfaces */
+  --surface-hover:         var(--prim-neutral-50);   /* #F9FAFB — subtle hover tint */
+  --surface-pressed:       var(--prim-neutral-200);  /* #EFF0F6 — pressed/active state */
+  --surface-selected:      var(--prim-harbor-50);      /* #DDF2F5 — subtle brand selected/active surface */
+
+  /* Brand — D2: #0B3B4B = hsl(195, 74%, 17%) */
+  --brand:                 var(--prim-harbor-900);     /* bg-brand / border-brand — #0B3B4B */
+  --brand-text:            var(--prim-harbor-900);     /* text-brand — #0B3B4B (light: same as bg; dark: near-white) */
+  --brand-foreground:      var(--prim-neutral-0);    /* text on brand bg */
+  --brand-subtle:          var(--prim-harbor-50);      /* bg-brand-subtle — #DDF2F5 (D3, revised) */
+
+  /* Destructive */
+  --destructive:           var(--prim-red-500);      /* text-destructive / bg-destructive — #f04438 */
+  --destructive-foreground: var(--prim-neutral-0);
+
+  /* Success */
+  --success:               var(--prim-green-500);    /* #12b76a — updated from #18BB0C (LEGACY) */
+  --success-strong:        var(--prim-green-500);    /* #12b76a — solid success fill (toggle on, status pill) */
+  --success-subtle:        var(--prim-green-50);     /* #ECFDF3 */
+  --success-text:          var(--prim-green-700);     /* #027a48 */
+
+  /* Warning */
+  --warning:               var(--prim-amber-text);   /* #B54708 */
+  --warning-foreground:    var(--prim-neutral-0);    /* white text on warning bg surface */
+  --warning-subtle:        var(--prim-amber-bg);     /* #FFFAEB */
+  --warning-text:          var(--prim-amber-text);   /* #B54708 */
+
+  /* Info — updated to blue.700 (#1666d4) */
+  --info:                  var(--prim-blue-700);     /* #1666d4 — updated from #175CD3 */
+  --info-foreground:       var(--prim-neutral-0);    /* white text on info bg surface */
+  --info-subtle:           var(--prim-info-bg);      /* #EFF8FF */
+  --info-text:             var(--prim-blue-700);     /* #1666d4 — updated from #175CD3 */
+
+  /* Borders */
+  --border:                var(--prim-neutral-200);  /* border-border — subtle dividers & cards; form elements use border-input-border */
+  --border-subtle:         var(--prim-neutral-200);  /* lighter divider */
+  --border-strong:         var(--prim-neutral-400);  /* stronger border */
+  --border-brand:          var(--prim-harbor-900);     /* #0B3B4B — brand border (dark: white) */
+
+  /* Brand focus — hover / active dark state on brand-colored elements */
+  --brand-focus:           var(--prim-harbor-dark);    /* #072A35 = primary-dark */
+
+  /* Destructive variant helpers */
+  --destructive-subtle:    var(--prim-red-50);       /* #FEF3F2 = red-50  — hover bg */
+  --destructive-muted:     var(--prim-error-two);    /* #FDA29B = error-two — ring */
+
+  /* Focus ring = brand harbor */
+  --ring:                  var(--prim-harbor-900);     /* #0B3B4B */
+  --focus-ring:            var(--prim-harbor-900);     /* #0B3B4B — dedicated focus ring colour */
+  --focus-ring-offset:     var(--prim-neutral-0);    /* #ffffff — ring offset gap */
+
+  /* Input border (same as --border) */
+  --input:                 var(--prim-neutral-300);
+
+  /* Misc semantic */
+  --secondary:             var(--prim-text-secondary); /* #3E6B7A — D6 notification subtitle */
+
+  /* ── Text hierarchy — use these for all text, not raw foreground vars ── */
+  --text-primary:          var(--prim-neutral-800);  /* #33333F — headings, titles */
+  --text-secondary:        var(--prim-neutral-600);  /* #5C5C70 — body copy */
+  --text-tertiary:         var(--prim-neutral-400);  /* #9D9DBC — placeholders, helper text */
+  --text-brand:            var(--brand-text);          /* brand text/icons — #0B3B4B (dark: near-white) */
+
+  /* Links — distinct from text-brand; higher-contrast in dark mode */
+  --text-link:             var(--prim-harbor-900);     /* #0B3B4B */
+  --text-link-hover:       var(--prim-harbor-dark);    /* #072A35 */
+
+  /* ── Icon ──────────────────────────────────────────── */
+  --icon-default:  var(--foreground);
+  --icon-muted:    var(--muted-foreground);
+  --icon-brand:    var(--brand);
+  --icon-on-brand: var(--brand-foreground);
+  --icon-disabled: var(--text-disabled);
+  --icon-success:  var(--success-text);
+  --icon-warning:  var(--warning-text);
+  --icon-error:    var(--destructive);
+  --icon-info:     var(--info-text);
+
+  /* Overlay — opacity applied via Tailwind modifier (bg-overlay/50) */
+  --overlay-bg:            var(--prim-harbor-900);     /* #0B3B4B */
+}
+
+/* =========================================================================
+   Layer 2 — Semantic tokens (dark mode overrides)
+   Applied when `dark` class is present on <html>.
+   ========================================================================= */
+
+.dark {
+  /* ── Surfaces ──────────────────────────────────────────────────── */
+  --background:            var(--prim-dark-neutral-0);    /* #0e1117 — page bg */
+  --foreground:            var(--prim-dark-neutral-800);  /* #e2e8f0 — near-white */
+
+  --card:                  var(--prim-dark-neutral-50);   /* #161c28 */
+  --card-foreground:       var(--prim-dark-neutral-800);  /* #e2e8f0 */
+
+  --popover:               var(--prim-dark-neutral-100);  /* #1c2333 */
+  --popover-foreground:    var(--prim-dark-neutral-800);  /* #e2e8f0 */
+  /* TODO: dark mode — update to --prim-dark-* once dark scale is built */
+  --tooltip-bg:            var(--prim-neutral-100);       /* inverted: light tooltip on dark page */
+
+  --surface:               var(--prim-dark-neutral-50);   /* #161c28 — page/dashboard/POS bg */
+  --muted:                 var(--prim-dark-neutral-100);  /* #1c2333 */
+  --muted-foreground:      var(--prim-dark-neutral-600);  /* #a0aec0 */
+
+  /* ── Disabled states ───────────────────────────────────────────── */
+  --surface-disabled:      var(--prim-dark-neutral-100);  /* #1c2333 — muted dark surface */
+  --text-disabled:         var(--prim-neutral-400);       /* #a3a8b0 — disabled text, low contrast */
+
+  /* ── Text hierarchy ─────────────────────────────────────────────── */
+  --text-primary:          var(--prim-dark-neutral-900); /* #edf2f7 — headings, titles */
+  --text-secondary:        var(--prim-dark-neutral-800); /* #e2e8f0 — body copy (= foreground) */
+  --text-tertiary:         var(--prim-dark-neutral-600); /* #a0aec0 — placeholders, helper text */
+
+  /* ── Interaction surfaces ──────────────────────────────────────── */
+  --surface-hover:         var(--prim-dark-neutral-100);  /* #1c2333 */
+  --surface-pressed:       var(--prim-dark-neutral-200);  /* #252d3d */
+  --surface-selected:      var(--prim-dark-harbor-100);     /* #0b3c2f — contained dark harbor surface */
+
+  /* ── Brand ─────────────────────────────────────────────────────── */
+  --brand:                 var(--prim-dark-harbor-400);     /* #1f7b68 — bg-brand / border-brand surface (8.5:1 contrast) */
+  --brand-text:            var(--prim-neutral-50);        /* #fafafb — text-brand near-white (neutral primitive) */
+  --brand-foreground:      var(--prim-dark-neutral-800);  /* #e2e8f0 */
+  --brand-subtle:          var(--prim-dark-harbor-bg);      /* #0b3c2f — chip bg dark */
+  --brand-focus:           var(--prim-dark-harbor-300);     /* #1a705b — hover */
+
+  /* ── Destructive ───────────────────────────────────────────────── */
+  --destructive:           var(--prim-dark-red-500);      /* #d92d20 — 14:1 contrast */
+  --destructive-foreground: var(--prim-dark-neutral-800); /* #e2e8f0 */
+  --destructive-subtle:    var(--prim-dark-red-50);       /* #3f1110 */
+  --destructive-muted:     var(--prim-dark-red-300);      /* #912018 */
+
+  /* ── Success ───────────────────────────────────────────────────── */
+  --success:               var(--prim-dark-green-500);    /* #32d583 — 18:1 contrast */
+  --success-strong:        var(--prim-dark-green-500);    /* #32d583 */
+  --success-subtle:        var(--prim-dark-green-50);     /* #054f31 */
+  --success-text:          var(--prim-dark-green-700);    /* #a6f4c5 — 66:1 contrast */
+
+  /* ── Warning ───────────────────────────────────────────────────── */
+  --warning:               var(--prim-dark-yellow-500);   /* #ca7200 */
+  /* TODO: dark mode — update to --prim-dark-* once dark scale is built */
+  --warning-foreground:    var(--prim-neutral-0);         /* white — revisit once dark warning surface finalised */
+  --warning-subtle:        var(--prim-dark-yellow-200);   /* #573200 — stop 200; ΔL=8% from bg (approved adj.) */
+  --warning-text:          var(--prim-dark-amber-text);   /* #fbd38d — 45:1 contrast */
+
+  /* ── Info ──────────────────────────────────────────────────────── */
+  --info:                  var(--prim-dark-blue-500);     /* #2176d9 — 12:1 contrast */
+  /* TODO: dark mode — update to --prim-dark-* once dark scale is built */
+  --info-foreground:       var(--prim-neutral-0);         /* white — revisit once dark info surface finalised */
+  --info-subtle:           var(--prim-dark-info-bg);      /* #082136 */
+  --info-text:             var(--prim-dark-blue-700);     /* #76b8f0 — 29:1 contrast */
+
+  /* ── Borders ───────────────────────────────────────────────────── */
+  --border:                var(--prim-dark-neutral-200);  /* subtle dividers & cards; form elements use border-input-border */
+  --border-subtle:         var(--prim-dark-neutral-200);  /* #252d3d */
+  --border-strong:         var(--prim-dark-neutral-400);  /* #4a5568 */
+  --border-brand:          var(--prim-neutral-0);         /* #ffffff — white on dark bg */
+
+  /* ── Ring & input ──────────────────────────────────────────────── */
+  --ring:                  var(--prim-dark-harbor-500);     /* #2e9e88 */
+  --focus-ring:            var(--prim-dark-harbor-500);     /* #2e9e88 */
+  --focus-ring-offset:     var(--prim-dark-neutral-0);    /* #0e1117 */
+  --input:                 var(--prim-dark-neutral-300);  /* #313b4f */
+
+  /* ── Secondary text — D6 ───────────────────────────────────────── */
+  --secondary:             var(--prim-dark-text-secondary); /* #8da7bf */
+
+  /* ── Links ─────────────────────────────────────────────────────── */
+  --text-link:             var(--prim-neutral-50);        /* #fafafb — near-white (neutral primitive) */
+  --text-link-hover:       var(--prim-neutral-0);         /* #ffffff — white */
+
+  /* ── Icon ──────────────────────────────────────────────────────── */
+  --icon-default:  var(--foreground);
+  --icon-muted:    var(--muted-foreground);
+  --icon-brand:    var(--brand-text);
+  --icon-on-brand: var(--brand-foreground);
+  --icon-disabled: var(--text-disabled);
+  --icon-success:  var(--success-text);
+  --icon-warning:  var(--warning-text);
+  --icon-error:    var(--destructive);
+  --icon-info:     var(--info-text);
+
+  /* ── Overlay ───────────────────────────────────────────────────── */
+  --overlay-bg:            var(--prim-dark-harbor-25);      /* #041611 */
+
+  /* ── Input component — Layer 3 dark overrides ──────────────────── */
+  --input-bg:              var(--prim-dark-neutral-50);   /* #161c28 */
+  --input-border:          var(--prim-dark-neutral-300);  /* #313b4f */
+
+  /* ── Skeleton ──────────────────────────────────────────────────── */
+  --skeleton-from: hsl(var(--prim-dark-achromatic-300));  /* #2a2a2a */
+  --skeleton-to:   hsl(var(--prim-dark-achromatic-500));  /* #3d3d3d */
+
+  /* ── Table — explicit per-theme overrides (delegate to semantic) ── */
+  --table-header-bg:   var(--muted);
+  --table-header-text: var(--text-primary);
+  --table-row-bg:      var(--background);
+  --table-row-hover:   var(--surface-hover);
+  --table-row-alt:     var(--muted);
+  --table-border:      var(--border-subtle);
+  --table-sticky-bg:   var(--background);
+
+  /* ── Navigation — explicit per-theme overrides (delegate to semantic) ── */
+  --nav-bg:               var(--background);
+  --nav-border:           var(--border-subtle);
+  --nav-item-text:        var(--muted-foreground);
+  --nav-item-text-active: var(--brand-text);
+  --nav-item-bg-hover:    var(--surface-hover);
+  --nav-item-bg-active:   var(--surface-selected);
+  --nav-item-indicator:   var(--brand-text);
+}
+
+/* =========================================================================
+   Typography tokens — size, weight, and leading helpers.
+   These are static (no dark-mode variants) — added alongside the token
+   audit decisions D1–D6 (see src/tokens/typography.ts and docs/typography-reaudit.md).
+   ========================================================================= */
+
+:root {
+
+  /* ── Font size & line-height — new tokens only (D1, D3) ─────────────────
+     Existing tokens are already encoded in tailwind.config.ts fontSize entries.
+     Only newly-added tokens require explicit CSS vars so they're available
+     in non-Tailwind contexts (react-pdf, Recharts) before tailwind.config.ts
+     is consumed. */
+
+  /* D3: new display-s = 40px (display-xs is the renamed old 36px token) */
+  --font-size-display-s:    2.5rem;     /* 40px */
+  --line-height-display-s:  3rem;       /* 48px */
+
+  /* D3: renamed from display-s — was 36px */
+  --font-size-display-xs:   2.25rem;    /* 36px */
+  --line-height-display-xs: 2.75rem;    /* 44px */
+
+  /* D1/D4: title-base covers the text-xl (20px) production gap */
+  --font-size-title-base:   1.25rem;    /* 20px */
+  --line-height-title-base: 1.75rem;    /* 28px */
+
+  /* D1: title-xs covers the text-lg (18px) production gap */
+  --font-size-title-xs:     1.125rem;   /* 18px */
+  --line-height-title-xs:   1.75rem;    /* 28px */
+
+  /* ── Font weight — canonical values for non-Tailwind contexts ───────────
+     Tailwind classes: font-regular / font-medium / font-semi-bold / font-bold
+     Standard aliases: font-normal = font-regular; font-semibold = font-semi-bold */
+
+  --font-weight-regular:    400;
+  --font-weight-medium:     500;
+  --font-weight-semi-bold:  600;
+  --font-weight-bold:       700;
+
+  /* ── D6: compact table-row line-height ──────────────────────────────────
+     Use leading-table (Tailwind) or var(--leading-table) (CSS) in table rows.
+     Replaces the 21 uses of leading-[0.2px] found in the codebase.
+     See docs/typography-migration-map.md — Table 3. */
+
+  --leading-table:          1;
+}

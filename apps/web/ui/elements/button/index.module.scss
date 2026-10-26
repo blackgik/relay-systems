@@ -1,0 +1,15 @@
+// SVG icon stroke colouring per variant.
+// Only variants with non-default icon colors need a rule here.
+// All other variants rely on currentColor via the SVG's own stroke/fill.
+
+.primary {
+  * {
+    @apply stroke-white fill-white;
+  }
+}
+
+.error {
+  * {
+    @apply stroke-white fill-white;
+  }
+}

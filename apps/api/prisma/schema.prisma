@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KycTier {
+  T0
+  T1
+  T2
+}
+
+enum ShipmentStatus {
+  DRAFT
+  ROUTED
+  AWAITING_APPROVAL
+  REROUTING
+  APPROVED
+  FUNDED
+  IN_TRANSIT
+  DELIVERED
+  DISPUTED
+  COMPLETED
+  REFUNDED
+  CANCELLED
+}
+
+enum LegStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  AWAITING_PICKUP
+  IN_CUSTODY
+  HANDED_OFF
+  SETTLED
+  NO_SHOW
+  LOST
+  DISPUTED
+}
+
+enum CustodyType {
+  PICKUP
+  TRANSFER
+  HUB_DROP
+  DELIVERY
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  phone        String            @unique
+  passwordHash String
+  fullName     String
+  kycTier      KycTier           @default(T0)
+  rating       Float             @default(0)
+  strikes      Int               @default(0)
+  createdAt    DateTime          @default(now())
+  trips        Trip[]
+  shipments    Shipment[]        @relation("sender")
+  kyc          KycVerification[]
+}
+
+model KycVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  provider  String
+  type      String // NIN, BVN, PASSPORT, LIVENESS, TRAVEL_PROOF
+  status    String // PENDING, VERIFIED, REJECTED
+  reference String
+  payload   Json
+  createdAt DateTime @default(now())
+}
+
+model Trip {
+  id             String   @id @default(cuid())
+  carrierId      String
+  carrier        User     @relation(fields: [carrierId], references: [id])
+  originCity     String
+  destCity       String
+  departAt       DateTime
+  arriveAt       DateTime
+  mode           String // ROAD, AIR, RAIL
+  flightNumber   String?
+  capacityKg     Int
+  remainingKg    Int
+  pricePerKg     Int // minor units
+  currency       String
+  categories     String[]
+  international  Boolean  @default(false)
+  travelVerified Boolean  @default(false)
+  status         String   @default("OPEN")
+  legs           Leg[]
+
+  @@index([originCity, departAt])
+}
+
+model Shipment {
+  id              String         @id @default(cuid())
+  senderId        String
+  sender          User           @relation("sender", fields: [senderId], references: [id])
+  receiverName    String
+  receiverPhone   String
+  deliveryOtpHash String?
+  originCity      String
+  destCity        String
+  category        String
+  weightKg        Float
+  declaredValue   Int
+  currency        String
+  photos          String[]
+  receiptUrl      String?
+  sourceUrl       String? // ecommerce product link
+  sealId          String?
+  status          ShipmentStatus @default(DRAFT)
+  totalPrice      Int?
+  version         Int            @default(0)
+  legs            Leg[]
+  custody         CustodyEvent[]
+  createdAt       DateTime       @default(now())
+}
+
+model Leg {
+  id             String    @id @default(cuid())
+  shipmentId     String
+  shipment       Shipment  @relation(fields: [shipmentId], references: [id])
+  tripId         String
+  trip           Trip      @relation(fields: [tripId], references: [id])
+  sequence       Int
+  fee            Int
+  currency       String
+  acceptDeadline DateTime
+  status         LegStatus @default(PROPOSED)
+  version        Int       @default(0)
+
+  @@unique([shipmentId, sequence])
+}
+
+model CustodyEvent {
+  id             String     @id @default(cuid())
+  shipmentId     String
+  shipment       Shipment   @relation(fields: [shipmentId], references: [id])
+  legId          String?
+  type           CustodyType
+  fromUserId     String?
+  toUserId       String?
+  sealId         String
+  photos         String[]
+  lat            Float?
+  lng            Float?
+  idempotencyKey String     @unique
+  occurredAt     DateTime
+  recordedAt     DateTime   @default(now())
+}
+
+model LocationPing {
+  id         BigInt   @id @default(autoincrement())
+  shipmentId String
+  carrierId  String
+  lat        Float
+  lng        Float
+  at         DateTime
+
+  @@index([shipmentId, at])
+}
+
+model LedgerAccount {
+  id       String        @id // e.g. "escrow:shp_123:NGN"
+  kind     String // USER_WALLET, ESCROW, REVENUE, INSURANCE_POOL, PSP_CLEARING
+  ownerId  String?
+  currency String
+  balance  BigInt        @default(0) // cache, recomputable from entries
+  entries  LedgerEntry[]
+}
+
+model LedgerTransaction {
+  id             String        @id @default(cuid())
+  idempotencyKey String        @unique
+  type           String // FUND_ESCROW, RELEASE_LEG, REFUND, PREMIUM, CLAIM_PAYOUT, WITHDRAW
+  shipmentId     String?
+  fxRate         Decimal?
+  createdAt      DateTime      @default(now())
+  entries        LedgerEntry[]
+}
+
+model LedgerEntry {
+  id            String            @id @default(cuid())
+  transactionId String
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id])
+  accountId     String
+  account       LedgerAccount     @relation(fields: [accountId], references: [id])
+  amount        BigInt // positive credit, negative debit; sum per transaction = 0
+}
+
+model Conversation {
+  id         String    @id @default(cuid())
+  shipmentId String?
+  legId      String?
+  members    String[]
+  messages   Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderId       String
+  body           String
+  attachments    String[]
+  createdAt      DateTime     @default(now())
+}
+
+model Dispute {
+  id         String   @id @default(cuid())
+  shipmentId String
+  legId      String?
+  openedBy   String
+  reason     String
+  evidence   Json
+  status     String   @default("OPEN") // OPEN, RULED
+  ruling     String? // RELEASE, REFUND, SPLIT
+  createdAt  DateTime @default(now())
+}
+
+model InsurancePolicy {
+  id         String @id @default(cuid())
+  shipmentId String @unique
+  coverage   Int
+  premium    Int
+  currency   String
+  status     String @default("ACTIVE")
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@index([publishedAt])
+}
+
+model ProcessedEvent {
+  id        String   @id // eventId + handler name
+  createdAt DateTime @default(now())
+}

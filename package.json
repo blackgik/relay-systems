@@ -1,0 +1,20 @@
+{
+  "devDependencies": {
+    "turbo": "^2",
+    "typescript": "^5"
+  },
+  "name": "relay",
+  "packageManager": "yarn@4.18.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "test": "turbo test"
+  },
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

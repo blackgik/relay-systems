@@ -1,0 +1,32 @@
+.skeleton-root,
+.skeleton-variant-rectangular {
+  display: block;
+  background: linear-gradient(270deg, var(--skeleton-from) 0%, var(--skeleton-to) 50%);
+  animation: pulseKeyframe 3s ease-in-out 0.5s infinite normal none running;
+}
+
+.skeleton-variant-circular {
+  border-radius: 50%;
+}
+
+.skeleton-variant-rounded {
+  border-radius: 0.25rem;
+}
+
+@keyframes pulseKeyframe {
+  0% {
+    opacity: 1;
+  }
+
+  33% {
+    opacity: 0.45;
+  }
+
+  66% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}

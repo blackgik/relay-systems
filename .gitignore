@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*.local
+!.env.example
+.DS_Store
+.yarn/install-state.gz
+.pnp.*
+# Generated service worker (next-pwa rebuilds these)
+apps/web/public/sw.js
+apps/web/public/workbox-*.js

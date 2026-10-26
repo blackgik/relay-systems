@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS custom properties live in src/styles/tokens.css (imported via app/layout.tsx).
+   Do NOT define :root or .dark token blocks here — that file is the single source of truth. ── */
+
+@layer utilities {
+  @layer responsive {
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .no-scrollbar {
+      -ms-overflow-style: none; /* IE and Edge */
+      scrollbar-width: none; /* Firefox */
+    }
+  }
+}
+
+/**
+ * Toastify overrides — strip react-toastify's default chrome so our custom
+ * ToastContent is the only visual layer. Positioning, auto-close timer, and
+ * entry/exit animations still come from ReactToastify.css (imported in the
+ * Toast component). Only appearance is overridden here.
+ *
+ * z-toast: 110 — above modals (z-modal: 100) and mobile nav bar (z-30).
+ */
+.Toastify__toast-container {
+  z-index: 110 !important;  /* z-toast — above modals and all navs */
+  padding: 0 !important;
+  width: auto !important;
+  min-width: 360px;
+  max-width: 420px;
+}
+
+/* Mobile: toasts always drop in from the top, centered, 32px below the
+   viewport edge — regardless of the position prop passed to toast(). */
+@media (max-width: 767px) {
+  .Toastify__toast-container {
+    top: 32px !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 2rem) !important;
+    min-width: 0 !important;
+    max-width: 400px !important;
+  }
+}
+
+.Toastify__toast {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 8px !important;
+  min-height: auto !important;
+  border-radius: 0 !important;
+  overflow: visible !important;  /* allow ToastContent's border-radius to show */
+}
+
+.Toastify__toast-body {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Hide react-toastify's built-in elements — we render our own inside ToastContent.
+   Progress bar: opacity:0 NOT display:none — react-toastify v9 drives auto-close
+   via the progress bar's animationend event; display:none kills the animation. */
+.Toastify__toast-icon {
+  display: none !important;
+}
+
+.Toastify__progress-bar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.Toastify__close-button {
+  display: none !important;
+}
+
+/* Toast entry / exit animations */
+@keyframes toast-slide-in-right {
+  from { transform: translateX(110%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes toast-slide-out-right {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
+
+@keyframes toast-slide-in-left {
+  from { transform: translateX(-110%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes toast-slide-out-left {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(-110%); opacity: 0; }
+}
+
+@keyframes toast-slide-in-down {
+  from { transform: translateY(-110%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes toast-slide-out-up {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-110%); opacity: 0; }
+}
+
+/* Progress bar countdown animation */
+@keyframes toast-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
+
+/* Drop shadows */
+.drop-shadow-green {
+  box-shadow: 0px -6px 0px 0px #b1f5da inset;
+}
+
+.drop-shadow-blue {
+  box-shadow: 0px -6px 0px 0px #cadcf0 inset;
+}
+
+/* react-datepicker overrides — all values use CSS custom properties
+   from src/styles/tokens.css */
+
+.react-datepicker-wrapper {
+  @apply w-full;
+}
+
+.react-datepicker {
+  @apply !z-10 !border-input-border !bg-popover !font-[inherit] !shadow-lg;
+}
+
+/* The popper wrapper defaults to z-index 1, so an upward-flipped calendar
+   slides under sticky modal headers (z-10). z-sticky (11) keeps it on top. */
+.react-datepicker-popper {
+  @apply !z-sticky;
+}
+
+.react-datepicker * {
+  font-size: 0.875rem !important;
+}
+
+.react-datepicker__header {
+  @apply !bg-muted;
+}
+
+.react-datepicker__day {
+  @apply !font-medium !text-foreground;
+}
+
+.react-datepicker__header--custom {
+  border-bottom-color: hsl(var(--input-border)) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  @apply !bg-brand !font-semi-bold !text-white;
+}
+
+.react-datepicker__day--disabled {
+  @apply cursor-not-allowed opacity-30 !important;
+}
+
+.react-datepicker__day:not(.react-datepicker__day--selected):not(.react-datepicker__day--keyboard-selected):not(.react-datepicker__day--disabled):hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.react-datepicker__day--today:not(.react-datepicker__day--selected) {
+  border: 1px solid hsl(var(--brand)) !important;
+  background-color: transparent !important;
+  color: hsl(var(--brand)) !important;
+}
+
+.react-datepicker__day--outside-month {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.5 !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: hsl(var(--muted-foreground)) !important;
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: hsl(var(--brand)) !important;
+}
+
+.react-datepicker__day-name {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.react-datepicker__current-month {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Dark mode — explicit overrides for react-datepicker elements that don't
+   pick up CSS vars automatically (e.g. box-shadow, popup container border) */
+.dark .react-datepicker {
+  border-color: hsl(var(--input-border)) !important;
+  background-color: hsl(var(--popover)) !important;
+}
