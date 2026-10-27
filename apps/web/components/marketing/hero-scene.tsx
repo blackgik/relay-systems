@@ -119,7 +119,7 @@ function Tree({ x, y }: { x: number; y: number }) {
   );
 }
 
-export function HeroScene() {
+export function HeroScene({ compact = false }: { compact?: boolean }) {
   const [arcX, arcY] = iso(5.2, 3.2, 5.2);
   const [doorX, doorY] = iso(3, 7, 1.2);
   const [headX, headY] = iso(12.5, 9.9, 0.9);
@@ -296,24 +296,28 @@ export function HeroScene() {
       </svg>
 
       {/* floating status cards */}
-      <div className="absolute left-0 top-[16%] hidden items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 py-3 shadow-2lg backdrop-blur sm:flex">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-subtle text-icon-brand dark:text-accent-signal">
-          <Lock size={16} />
-        </span>
-        <div>
-          <p className="text-label-m text-text-tertiary">Held in escrow</p>
-          <p className="text-title-s text-text-primary">₦60,750</p>
-        </div>
-      </div>
-      <div className="absolute bottom-[6%] right-[2%] hidden items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 py-3 shadow-2lg backdrop-blur sm:flex">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-success-subtle text-success-text">
-          <ShieldCheck size={16} />
-        </span>
-        <div>
-          <p className="text-label-m text-text-tertiary">Leg 2 of 2 · Abuja → Houston</p>
-          <p className="text-title-s text-text-primary">Seal SEAL-1 verified</p>
-        </div>
-      </div>
+      {!compact && (
+        <>
+          <div className="absolute left-0 top-[16%] hidden items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 py-3 shadow-2lg backdrop-blur sm:flex">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-subtle text-icon-brand dark:text-accent-signal">
+              <Lock size={16} />
+            </span>
+            <div>
+              <p className="text-label-m text-text-tertiary">Held in escrow</p>
+              <p className="text-title-s text-text-primary">₦60,750</p>
+            </div>
+          </div>
+          <div className="absolute bottom-[6%] right-[2%] hidden items-center gap-3 rounded-2xl border border-border/70 bg-background/90 px-4 py-3 shadow-2lg backdrop-blur sm:flex">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-success-subtle text-success-text">
+              <ShieldCheck size={16} />
+            </span>
+            <div>
+              <p className="text-label-m text-text-tertiary">Leg 2 of 2 · Abuja → Houston</p>
+              <p className="text-title-s text-text-primary">Seal SEAL-1 verified</p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

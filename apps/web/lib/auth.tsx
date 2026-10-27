@@ -3,22 +3,29 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from './api';
-import { User } from './types';
+import { AuthSession, User } from './types';
 
 const ACCESS_KEY = 'relay_access';
 const REFRESH_KEY = 'relay_refresh';
+
+export interface RegisterResult {
+  verificationRequired: true;
+  email: string;
+  resendInSeconds: number;
+}
 
 interface AuthContextValue {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    email: string;
-    phone: string;
-    fullName: string;
-    password: string;
-  }) => Promise<void>;
+  /** Throws ApiError; status 403 with body.code === 'EMAIL_NOT_VERIFIED' means "go verify". */
+  login: (email: string, password: string) => Promise<User>;
+  /** Creates the account and emails an OTP. Does not sign in. */
+  register: (data: { email: string; phone: string; fullName: string; password: string }) => Promise<RegisterResult>;
+  verifyEmail: (email: string, code: string) => Promise<User>;
+  resetPassword: (email: string, code: string, password: string) => Promise<User>;
+  /** Signs in with tokens obtained elsewhere (Google OAuth exchange). */
+  startSession: (session: AuthSession) => void;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -33,10 +40,23 @@ function readTokens() {
   };
 }
 
+/** Where a freshly signed-in user should land. */
+export function homeFor(user: User) {
+  const unfinished = ['NOT_STARTED', 'IN_PROGRESS', 'REJECTED'].includes(user.onboarding?.status);
+  return user.kycTier === 'T0' && unfinished ? '/onboarding' : '/search';
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const startSession = useCallback((session: AuthSession) => {
+    localStorage.setItem(ACCESS_KEY, session.accessToken);
+    localStorage.setItem(REFRESH_KEY, session.refreshToken);
+    setUser(session.user);
+    setToken(session.accessToken);
+  }, []);
 
   const load = useCallback(async () => {
     const { access, refresh } = readTokens();
@@ -55,49 +75,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        const rotated = await api<{ user: User; accessToken: string; refreshToken: string }>(
-          '/auth/refresh',
-          { method: 'POST', body: { refreshToken: refresh } }
-        );
-        localStorage.setItem(ACCESS_KEY, rotated.accessToken);
-        localStorage.setItem(REFRESH_KEY, rotated.refreshToken);
-        setUser(rotated.user);
-        setToken(rotated.accessToken);
+        startSession(await api<AuthSession>('/auth/refresh', { method: 'POST', body: { refreshToken: refresh } }));
       } catch {
         localStorage.removeItem(ACCESS_KEY);
         localStorage.removeItem(REFRESH_KEY);
       }
     }
     setLoading(false);
-  }, []);
+  }, [startSession]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await api<{ user: User; accessToken: string; refreshToken: string }>(
-      '/auth/login',
-      { method: 'POST', body: { email, password } }
-    );
-    localStorage.setItem(ACCESS_KEY, result.accessToken);
-    localStorage.setItem(REFRESH_KEY, result.refreshToken);
-    setUser(result.user);
-    setToken(result.accessToken);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const session = await api<AuthSession>('/auth/login', { method: 'POST', body: { email, password } });
+      startSession(session);
+      return session.user;
+    },
+    [startSession]
+  );
 
   const register = useCallback(
-    async (data: { email: string; phone: string; fullName: string; password: string }) => {
-      const result = await api<{ user: User; accessToken: string; refreshToken: string }>(
-        '/auth/register',
-        { method: 'POST', body: data }
-      );
-      localStorage.setItem(ACCESS_KEY, result.accessToken);
-      localStorage.setItem(REFRESH_KEY, result.refreshToken);
-      setUser(result.user);
-      setToken(result.accessToken);
-    },
+    (data: { email: string; phone: string; fullName: string; password: string }) =>
+      api<RegisterResult>('/auth/register', { method: 'POST', body: data }),
     []
+  );
+
+  const verifyEmail = useCallback(
+    async (email: string, code: string) => {
+      const session = await api<AuthSession>('/auth/verify-email', { method: 'POST', body: { email, code } });
+      startSession(session);
+      return session.user;
+    },
+    [startSession]
+  );
+
+  const resetPassword = useCallback(
+    async (email: string, code: string, password: string) => {
+      const session = await api<AuthSession>('/auth/reset-password', {
+        method: 'POST',
+        body: { email, code, password },
+      });
+      startSession(session);
+      return session.user;
+    },
+    [startSession]
   );
 
   const logout = useCallback(() => {
@@ -115,7 +139,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, login, register, verifyEmail, resetPassword, startSession, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

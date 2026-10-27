@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Badge, Button, CircularLoader, Typography, toast } from '@/ui/elements';
 import { AppShell } from '@/components/app-shell';
 import { useRequireAuth } from '@/lib/auth';
 import { ApiError, api } from '@/lib/api';
 
 const CHECKS = [
-  { type: 'NIN', label: 'NIN — verify to Tier 1' },
-  { type: 'BVN', label: 'BVN — verify to Tier 1' },
   { type: 'PASSPORT', label: 'Passport — verify to Tier 2' },
 ];
 
@@ -54,8 +53,18 @@ export default function Kyc() {
             </div>
             <Typography size="body-m" color="secondary" as="p">
               Tier 1 unlocks domestic sending and carrying. Tier 2 unlocks international
-              routes. Verification is mocked for the demo and passes instantly.
+              routes. The passport check is mocked for the demo and passes instantly.
             </Typography>
+            {user.onboarding.status !== 'VERIFIED' && user.kycTier === 'T0' && (
+              <Link
+                href="/onboarding"
+                className="rounded-lg border border-border-brand p-4 text-body-m font-medium text-text-brand hover:bg-surface-hover"
+              >
+                {user.onboarding.status === 'SUBMITTED'
+                  ? 'Your verification is under review →'
+                  : 'Start identity verification (NIN, BVN, ID and bank) →'}
+              </Link>
+            )}
             <div className="flex flex-col gap-3">
               {CHECKS.map((check) => (
                 <div

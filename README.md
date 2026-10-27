@@ -45,3 +45,10 @@ yarn workspace @relay/web test
 yarn workspace @relay/api prisma:generate
 node apps/api/scripts/simulate-gps.mjs --help
 ```
+
+## Attribution
+
+This codebase was built by the Relay team with assistance from Muse
+Code (powered by Meta Muse Spark), an agentic coding assistant.
+AI-assisted commits are marked with an `Assisted-by:` trailer in the
+commit message.

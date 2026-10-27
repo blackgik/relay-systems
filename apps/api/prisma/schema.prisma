@@ -50,18 +50,92 @@ enum CustodyType {
 }
 
 model User {
-  id           String            @id @default(cuid())
-  email        String            @unique
-  phone        String            @unique
-  passwordHash String
-  fullName     String
-  kycTier      KycTier           @default(T0)
-  rating       Float             @default(0)
-  strikes      Int               @default(0)
-  createdAt    DateTime          @default(now())
-  trips        Trip[]
-  shipments    Shipment[]        @relation("sender")
-  kyc          KycVerification[]
+  id              String            @id @default(cuid())
+  email           String            @unique
+  // Optional: Google sign-ups have no phone until KYC collects it.
+  phone           String?           @unique
+  passwordHash    String
+  fullName        String
+  emailVerifiedAt DateTime?
+  googleId        String?           @unique
+  kycTier         KycTier           @default(T0)
+  rating          Float             @default(0)
+  strikes         Int               @default(0)
+  createdAt       DateTime          @default(now())
+  trips           Trip[]
+  shipments       Shipment[]        @relation("sender")
+  kyc             KycVerification[]
+  otps            EmailOtp[]
+  kycProfile      KycProfile?
+  bankAccount     BankAccount?
+}
+
+// One-time email codes. Only the hash is stored; codes expire and lock
+// after a handful of wrong guesses.
+model EmailOtp {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose    String // VERIFY_EMAIL, RESET_PASSWORD
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, purpose, createdAt])
+}
+
+// Onboarding KYC. Government numbers are AES-GCM encrypted (*Enc); the
+// HMAC fingerprints are unique so one NIN/BVN cannot back two accounts.
+model KycProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String    @default("IN_PROGRESS") // IN_PROGRESS, SUBMITTED, VERIFIED, REJECTED
+  step           String    @default("PERSONAL") // PERSONAL, IDENTITY, DOCUMENTS, BANK, REVIEW
+  firstName      String?
+  middleName     String?
+  lastName       String?
+  dateOfBirth    DateTime?
+  gender         String?
+  address        String?
+  city           String?
+  state          String?
+  ninEnc         String?
+  ninLast4       String?
+  ninFingerprint String?   @unique
+  bvnEnc         String?
+  bvnLast4       String?
+  bvnFingerprint String?   @unique
+  idType         String? // DRIVERS_LICENSE, VOTERS_CARD, INTL_PASSPORT, NIN_SLIP
+  idNumberEnc    String?
+  idNumberLast4  String?
+  idDocument     String? // data URL
+  selfie         String? // data URL
+  submittedAt    DateTime?
+  reviewNote     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Payout account, collected last. The account name comes from Paystack, and
+// BVN ownership of the account is checked via Paystack customer validation.
+model BankAccount {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankCode             String
+  bankName             String
+  accountNumberEnc     String
+  accountLast4         String
+  accountFingerprint   String   @unique
+  accountName          String
+  nameMatches          Boolean
+  paystackCustomerCode String?
+  bvnMatchStatus       String   @default("PENDING") // PENDING, VERIFIED, FAILED, UNAVAILABLE
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model KycVerification {
@@ -141,9 +215,9 @@ model Leg {
 }
 
 model CustodyEvent {
-  id             String     @id @default(cuid())
+  id             String      @id @default(cuid())
   shipmentId     String
-  shipment       Shipment   @relation(fields: [shipmentId], references: [id])
+  shipment       Shipment    @relation(fields: [shipmentId], references: [id])
   legId          String?
   type           CustodyType
   fromUserId     String?
@@ -152,9 +226,9 @@ model CustodyEvent {
   photos         String[]
   lat            Float?
   lng            Float?
-  idempotencyKey String     @unique
+  idempotencyKey String      @unique
   occurredAt     DateTime
-  recordedAt     DateTime   @default(now())
+  recordedAt     DateTime    @default(now())
 }
 
 model LocationPing {

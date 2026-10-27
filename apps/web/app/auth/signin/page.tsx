@@ -1,58 +1,90 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Button, Input, Typography, toast } from '@/ui/elements';
-import { AppShell } from '@/components/app-shell';
-import { useAuth } from '@/lib/auth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthShell } from '@/components/auth/auth-shell';
+import { Field, FormError, GoogleButton, OrDivider, PasswordField, SubmitButton } from '@/components/auth/fields';
+import { homeFor, useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 
-export default function SignIn() {
-  const { login } = useAuth();
+const OAUTH_ERRORS: Record<string, string> = {
+  google_failed: 'Google sign-in did not complete. Please try again.',
+  google_unavailable: 'Google sign-in is not available right now. Use your email instead.',
+};
+
+function SignInForm() {
+  const { login, user, loading } = useAuth();
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(OAUTH_ERRORS[params.get('error') ?? ''] ?? null);
+
+  useEffect(() => {
+    if (!loading && user) router.replace(homeFor(user));
+  }, [loading, user, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
-      await login(email, password);
-      router.push('/search');
+      router.push(homeFor(await login(email, password)));
     } catch (err) {
-      toast.error({
-        title: 'Sign in failed',
-        description: err instanceof ApiError ? err.message : 'Try again',
-      });
-    } finally {
+      const body = err instanceof ApiError ? (err.body as { code?: string; email?: string }) : null;
+      if (body?.code === 'EMAIL_NOT_VERIFIED') {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(body.email ?? email)}&sent=1`);
+        return;
+      }
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.');
       setBusy(false);
     }
   };
 
   return (
-    <AppShell>
-      <form onSubmit={submit} className="mx-auto flex max-w-md flex-col gap-4 py-10">
-        <Typography size="headline-m" weight="bold" color="primary" as="h1">
-          Sign in
-        </Typography>
-        <Input name="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input
-          name="password"
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <Button type="submit" label={busy ? 'Signing in…' : 'Sign in'} size="lg" disabled={busy} />
-        <Typography size="body-m" color="secondary" as="p">
-          New here?{' '}
-          <Link href="/auth/signup" className="font-medium text-text-brand">
-            Create an account
-          </Link>
-        </Typography>
-      </form>
-    </AppShell>
+    <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+      <FormError>{error}</FormError>
+      <Field
+        label="Email"
+        hideLabel
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <PasswordField
+        label="Password"
+        hideLabel
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <Link href="/auth/forgot-password" className="-mt-2 self-end text-body-m text-text-secondary hover:text-text-brand">
+        Forgot password?
+      </Link>
+      <SubmitButton busy={busy}>Log in</SubmitButton>
+      <OrDivider />
+      <GoogleButton />
+      <p className="text-center text-body-m text-text-secondary">
+        New to Relay?{' '}
+        <Link href="/auth/signup" className="font-semi-bold text-text-link hover:underline dark:text-harbor-200">
+          Create an account
+        </Link>
+      </p>
+    </form>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <AuthShell title="Welcome back" subtitle="Log in to your Relay account">
+      <Suspense>
+        <SignInForm />
+      </Suspense>
+    </AuthShell>
   );
 }
