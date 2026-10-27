@@ -218,3 +218,53 @@ input[type='password']::-ms-clear {
   border-color: hsl(var(--input-border)) !important;
   background-color: hsl(var(--popover)) !important;
 }
+
+/* Landing hero illustration (components/marketing/hero-scene.tsx).
+   Illustration-only palette: -t / -l / -r are the top, left and right faces
+   of each isometric box, shaded as if lit from the upper left. */
+.relay-scene {
+  --rs-base-t: #f6f3ee;  --rs-base-l: #e7e2da;  --rs-base-r: #d8d2c8;
+  --rs-wall-t: #ffffff;  --rs-wall-l: #f4f2ee;  --rs-wall-r: #e3dfd8;
+  --rs-harbor-t: #1f6e80; --rs-harbor-l: #0b3b4b; --rs-harbor-r: #093039;
+  --rs-road-t: #27313b;  --rs-road-l: #1a222a;  --rs-road-r: #121820;
+  --rs-kraft-t: #ecc98f; --rs-kraft-l: #dcac68; --rs-kraft-r: #c99653;
+  --rs-pot-t: #ffffff;   --rs-pot-l: #eeeae4;   --rs-pot-r: #dcd7cf;
+  --rs-tape: #b7864a;
+  --rs-leaf-1: #6f9a74;  --rs-leaf-2: #557f5c;  --rs-leaf-3: #85ad86;
+  --rs-trunk: #7a6248;
+  --rs-grid: rgba(11, 59, 75, 0.06);
+  --rs-lane: rgba(255, 255, 255, 0.35);
+  --rs-glass: #1d3a47;
+  --rs-tyre: #1a1f26;
+  --rs-ink: #0b3b4b;
+  --rs-ink-soft: #5a758f;
+  --rs-route: #1f6e80;
+  --rs-shadow: rgba(11, 59, 75, 0.18);
+}
+
+.dark .relay-scene {
+  --rs-base-t: #1c2433;  --rs-base-l: #161c28;  --rs-base-r: #11161f;
+  --rs-wall-t: #2a3446;  --rs-wall-l: #222b3b;  --rs-wall-r: #1a2230;
+  --rs-harbor-t: #2e9e88; --rs-harbor-l: #1f7b68; --rs-harbor-r: #17604f;
+  --rs-road-t: #0c1016;  --rs-road-l: #080b10;  --rs-road-r: #05070a;
+  --rs-pot-t: #2a3446;   --rs-pot-l: #222b3b;   --rs-pot-r: #1a2230;
+  --rs-grid: rgba(255, 255, 255, 0.04);
+  --rs-glass: #79c4d2;
+  --rs-ink: #edf2f7;
+  --rs-ink-soft: #a0aec0;
+  --rs-route: #79c4d2;
+  --rs-shadow: rgba(0, 0, 0, 0.5);
+}
+
+.legal-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.legal-body strong {
+  color: hsl(var(--text-primary));
+  font-weight: 600;
+}

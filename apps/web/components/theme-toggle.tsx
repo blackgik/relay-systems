@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/ui/elements';
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -28,6 +28,8 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       label={dark ? <Sun size={16} /> : <Moon size={16} />}
+      fit={!!className}
+      customClassName={className}
     />
   );
 }

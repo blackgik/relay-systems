@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Badge,
@@ -50,6 +50,15 @@ export default function Search() {
     receiverPhone: '',
   });
   const [photo, setPhoto] = useState<string>();
+  // The landing page's route search hands over ?from=&to= cities.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const from = q.get('from');
+    const to = q.get('to');
+    if (from || to) {
+      setForm((f) => ({ ...f, originCity: from || f.originCity, destCity: to || f.destCity }));
+    }
+  }, []);
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
