@@ -113,8 +113,15 @@ export default function ShipmentDetail() {
             <Typography size="body-s" color="secondary" as="p">
               Departs {fmtDate(leg.trip.departAt)} · Fee {formatMinors(leg.fee, leg.currency)} ·
               Accept by {fmtDate(leg.acceptDeadline)}
-              {leg.trip.carrier ? ` · Carrier: ${leg.trip.carrier.fullName}` : ''}
             </Typography>
+            {leg.trip.carrier?.handle && (
+              <Link
+                href={`/dashboard/people/${leg.trip.carrier.handle}`}
+                className="w-fit text-body-s font-medium text-text-link hover:underline dark:text-harbor-200"
+              >
+                Courier @{leg.trip.carrier.handle} · {leg.trip.carrier.kycTier}
+              </Link>
+            )}
             <div>
               <Button
                 label={openChat === leg.id ? 'Hide chat' : 'Chat with carrier'}

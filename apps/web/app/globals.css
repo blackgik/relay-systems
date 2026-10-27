@@ -268,3 +268,200 @@ input[type='password']::-ms-clear {
   color: hsl(var(--text-primary));
   font-weight: 600;
 }
+
+/* Dashboard chart series (components/dashboard/charts.tsx). Validated with the
+   dataviz palette checker: lightness band, chroma, CVD separation and 3:1
+   contrast pass against the card surface in each mode. */
+:root {
+  --chart-earned: #0891a8;
+  --chart-spent: #d97706;
+  --chart-muted: #c8d6dc;
+  --chart-grid: #eef0f4;
+}
+
+.dark {
+  --chart-earned: #1aa0b6;
+  --chart-spent: #c27a0a;
+  --chart-muted: #2c3a4a;
+  --chart-grid: #222b3b;
+}
+
+/* Courier-card vehicle art (components/dashboard/vehicle.tsx). */
+:root {
+  --veh-body: #ffffff;
+  --veh-panel: #e3dfd8;
+  --veh-ink: #0b3b4b;
+}
+
+.dark {
+  --veh-body: #33405a;
+  --veh-panel: #4a5873;
+  --veh-ink: #edf2f7;
+}
+
+/* ── Hero scene motion (components/marketing/hero-scene.tsx) ─────────────
+   One 12s story loop:
+     0–20%   van fades in at the door and pulls forward to load
+     20–48%  parcels ride the conveyor out of the door and into the van,
+             signpost ticks Sealed → Escrowed → Tracked
+     48–86%  van drives off along the road and fades at the platform edge
+   Distances are multiples of --step-x/--step-y (one iso unit along +x).
+   Ambient loops run on their own clocks. */
+@media (prefers-reduced-motion: no-preference) {
+  .relay-scene .rs-van {
+    animation: rs-van 12s infinite both;
+  }
+  .relay-scene .rs-van-body {
+    animation: rs-idle 0.45s ease-in-out infinite alternate;
+  }
+  .relay-scene .rs-spoke {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-roll 12s linear infinite;
+  }
+  .relay-scene .rs-headlight {
+    animation: rs-headlight 12s ease-in-out infinite;
+  }
+  .relay-scene .rs-box {
+    animation: rs-box 12s infinite both;
+  }
+  .relay-scene .rs-box-0 { animation-delay: 2.6s; }
+  .relay-scene .rs-box-1 { animation-delay: 3.7s; }
+  .relay-scene .rs-box-2 { animation-delay: 4.8s; }
+  .relay-scene .rs-tick {
+    animation: rs-tick 12s infinite both;
+  }
+  .relay-scene .rs-tick-0 { animation-delay: 3.4s; }
+  .relay-scene .rs-tick-1 { animation-delay: 4.8s; }
+  .relay-scene .rs-tick-2 { animation-delay: 6.2s; }
+  .relay-scene .rs-door-glow {
+    animation: rs-breathe 3.2s ease-in-out infinite alternate;
+  }
+  .relay-scene .rs-edge-glow {
+    animation: rs-shimmer 2.6s ease-in-out infinite alternate;
+  }
+  .relay-scene .rs-lane {
+    animation: rs-dash 1.1s linear infinite;
+  }
+  .relay-scene .rs-arc {
+    animation: rs-arc 1.6s linear infinite;
+  }
+  .relay-scene .rs-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-pulse 2.4s ease-out infinite;
+  }
+  .relay-scene .rs-sway {
+    animation: rs-sway 4.5s ease-in-out infinite alternate;
+  }
+  .relay-scene .rs-word {
+    animation: rs-word 6s ease-in-out infinite;
+  }
+  .relay-scene .rs-word-2 { animation-delay: 2s; }
+  .relay-scene .rs-word-3 { animation-delay: 4s; }
+  .relay-scene .rs-float {
+    animation: rs-float 5s ease-in-out infinite alternate;
+  }
+  .relay-scene .rs-float-late {
+    animation-delay: -2.5s;
+  }
+  /* Off-screen: freeze everything (the SVG's SMIL plane pauses via JS). */
+  .relay-scene[data-paused] *,
+  .relay-scene[data-paused] {
+    animation-play-state: paused !important;
+  }
+}
+
+/* Without motion the scene is a still: van parked, one parcel on the belt. */
+@media (prefers-reduced-motion: reduce) {
+  .relay-scene .rs-box-1,
+  .relay-scene .rs-box-2 {
+    display: none;
+  }
+}
+
+.relay-scene .rs-tick {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes rs-van {
+  0% { transform: translate(calc(var(--step-x) * -5), calc(var(--step-y) * -5)); opacity: 0; animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+  5% { opacity: 1; }
+  20% { transform: translate(0, 0); }
+  48% { transform: translate(0, 0); animation-timing-function: cubic-bezier(0.55, 0, 0.4, 1); }
+  80% { transform: translate(calc(var(--step-x) * 2.4), calc(var(--step-y) * 2.4)); opacity: 1; animation-timing-function: linear; }
+  86% { transform: translate(calc(var(--step-x) * 3.2), calc(var(--step-y) * 3.2)); opacity: 0; }
+  100% { transform: translate(calc(var(--step-x) * -5), calc(var(--step-y) * -5)); opacity: 0; }
+}
+
+@keyframes rs-idle {
+  from { transform: translateY(0); }
+  to { transform: translateY(-0.7px); }
+}
+
+/* Wheels turn only while the van is moving. */
+@keyframes rs-roll {
+  0% { transform: rotate(0deg); }
+  20%, 48% { transform: rotate(720deg); }
+  86%, 100% { transform: rotate(1800deg); }
+}
+
+@keyframes rs-headlight {
+  0%, 20% { opacity: 0.7; }
+  26%, 44% { opacity: 0.25; }
+  48%, 84% { opacity: 0.75; }
+  92%, 100% { opacity: 0.25; }
+}
+
+@keyframes rs-box {
+  0% { transform: translate(0, 0); opacity: 0; }
+  2% { opacity: 1; }
+  6% { transform: translate(var(--belt-x), var(--belt-y)); }
+  11% { transform: translate(calc(var(--belt-x) + var(--load-x)), calc(var(--belt-y) + var(--load-y))); opacity: 1; }
+  12%, 100% { transform: translate(calc(var(--belt-x) + var(--load-x)), calc(var(--belt-y) + var(--load-y))); opacity: 0; }
+}
+
+@keyframes rs-tick {
+  0% { opacity: 0.15; transform: scale(0.6); }
+  4%, 60% { opacity: 1; transform: scale(1); }
+  68%, 100% { opacity: 0.15; transform: scale(0.6); }
+}
+
+@keyframes rs-breathe {
+  from { opacity: 0.15; }
+  to { opacity: 0.4; }
+}
+
+@keyframes rs-shimmer {
+  from { opacity: 0.55; }
+  to { opacity: 0.95; }
+}
+
+@keyframes rs-dash {
+  to { stroke-dashoffset: -22; }
+}
+
+@keyframes rs-arc {
+  to { stroke-dashoffset: -13; }
+}
+
+@keyframes rs-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+@keyframes rs-sway {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.6deg); }
+}
+
+@keyframes rs-word {
+  0%, 100% { opacity: 0.55; }
+  15%, 40% { opacity: 1; }
+}
+
+@keyframes rs-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}

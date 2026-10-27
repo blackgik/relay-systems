@@ -43,7 +43,7 @@ function readTokens() {
 /** Where a freshly signed-in user should land. */
 export function homeFor(user: User) {
   const unfinished = ['NOT_STARTED', 'IN_PROGRESS', 'REJECTED'].includes(user.onboarding?.status);
-  return user.kycTier === 'T0' && unfinished ? '/onboarding' : '/search';
+  return user.kycTier === 'T0' && unfinished ? '/onboarding' : '/dashboard';
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

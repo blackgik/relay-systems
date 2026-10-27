@@ -1,13 +1,18 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsNumber,
   IsOptional,
   IsString,
   Length,
+  Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
+import { MAX_PHOTO_LENGTH, PHOTO_MESSAGE, PHOTO_PATTERN } from '../../common/validators/photo';
 
 export class HandoffDto {
   @IsString()
@@ -18,15 +23,22 @@ export class HandoffDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @Matches(PHOTO_PATTERN, { each: true, message: PHOTO_MESSAGE })
+  @MaxLength(MAX_PHOTO_LENGTH, { each: true })
   photos!: string[];
 
   @IsOptional()
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   lat?: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   lng?: number;
 
   @IsString()
@@ -40,7 +52,10 @@ export class DeliverDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @Matches(PHOTO_PATTERN, { each: true, message: PHOTO_MESSAGE })
+  @MaxLength(MAX_PHOTO_LENGTH, { each: true })
   photos!: string[];
 
   @IsString()
@@ -52,9 +67,13 @@ export class PingDto {
   shipmentId!: string;
 
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   lat!: number;
 
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   lng!: number;
 }
 

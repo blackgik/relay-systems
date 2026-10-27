@@ -70,3 +70,28 @@ export class TravelProofDto {
   @IsString()
   reference!: string;
 }
+
+/** Query filters for GET /trips — validated so bad dates never reach `new Date()`. */
+export class ListTripsQueryDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 80)
+  origin?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 80)
+  dest?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  from?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  to?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  mine?: string;
+}

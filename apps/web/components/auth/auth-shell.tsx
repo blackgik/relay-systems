@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { HeroScene } from '@/components/marketing/hero-scene';
+import { SiteHeader } from '@/components/marketing/site-header';
 import { Wordmark } from '@/components/marketing/blocks';
 
 // Split auth card: brand panel with the hub illustration on the left, the
@@ -19,7 +20,9 @@ export function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-surface px-4 py-10">
+    <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-surface px-4 pb-10 pt-32 md:pt-40">
+      {/* Same fixed pill header as the landing pages. */}
+      <SiteHeader />
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -right-20 -top-24 h-[380px] w-[380px] rounded-full bg-accent-signal/20 blur-3xl" />
         <div className="absolute -bottom-32 -left-24 h-[420px] w-[420px] rounded-full bg-brand-subtle blur-3xl dark:opacity-40" />

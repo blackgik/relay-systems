@@ -64,12 +64,30 @@ export class TripsService {
     if (filters.carrierId) where.carrierId = filters.carrierId;
     if (filters.origin) where.originCity = filters.origin;
     if (filters.dest) where.destCity = filters.dest;
+    if (filters.from && filters.to && new Date(filters.from) > new Date(filters.to)) {
+      throw new BadRequestException('from must be before to');
+    }
     if (filters.from || filters.to) {
       where.departAt = {};
       if (filters.from) where.departAt.gte = new Date(filters.from);
       if (filters.to) where.departAt.lte = new Date(filters.to);
     }
-    return this.prisma.trip.findMany({ where, orderBy: { departAt: 'asc' } });
+    return this.prisma.trip
+      .findMany({
+        where,
+        orderBy: { departAt: 'asc' },
+        // Public listing: the carrier appears by handle only, and the
+        // carrier's account id is stripped so trips can't be linked to a person.
+        include: {
+          carrier: { select: { handle: true, kycTier: true, rating: true } },
+          _count: {
+            select: { legs: { where: { status: { in: ['ACCEPTED', 'AWAITING_PICKUP', 'IN_CUSTODY'] } } } },
+          },
+        },
+      })
+      .then((trips) =>
+        filters.carrierId ? trips : trips.map(({ carrierId: _carrierId, ...trip }) => trip)
+      );
   }
 
   async get(id: string) {
@@ -83,7 +101,7 @@ export class TripsService {
   findCandidates(now: Date, horizon: Date) {
     return this.prisma.trip.findMany({
       where: { status: 'OPEN', departAt: { gte: now, lte: horizon }, remainingKg: { gt: 0 } },
-      include: { carrier: { select: { kycTier: true, rating: true } } },
+      include: { carrier: { select: { handle: true, kycTier: true, rating: true } } },
       orderBy: { departAt: 'asc' },
     });
   }

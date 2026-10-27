@@ -21,6 +21,9 @@ export class WalletService {
   }
 
   async transactions(userId: string, take = 50) {
+    // Backstop for any caller that bypasses the controller's pipes:
+    // non-numeric input falls back to the default, numbers clamp to 1..100.
+    const limit = Number.isFinite(take) ? Math.min(100, Math.max(1, Math.trunc(take))) : 50;
     const accounts = await this.prisma.ledgerAccount.findMany({
       where: { kind: 'USER_WALLET', ownerId: userId },
       select: { id: true },
@@ -29,7 +32,7 @@ export class WalletService {
       where: { accountId: { in: accounts.map((a) => a.id) } },
       include: { transaction: true },
       orderBy: { transaction: { createdAt: 'desc' } },
-      take,
+      take: limit,
     });
     return serializeLedger(entries);
   }

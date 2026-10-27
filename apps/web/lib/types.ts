@@ -8,6 +8,7 @@ export interface User {
   phone: string | null;
   fullName: string;
   emailVerifiedAt: string | null;
+  handle: string | null;
   kycTier: 'T0' | 'T1' | 'T2';
   rating: number;
   strikes: number;
@@ -64,6 +65,10 @@ export interface Trip {
   international: boolean;
   travelVerified: boolean;
   status: string;
+  /** Present on GET /trips responses (public listing). Handle only, never a name or id. */
+  carrier?: { handle: string | null; kycTier: 'T0' | 'T1' | 'T2'; rating: number };
+  /** Present on GET /trips responses: accepted/in-custody packages on this trip. */
+  _count?: { legs: number };
 }
 
 export interface Leg {
@@ -75,7 +80,7 @@ export interface Leg {
   currency: string;
   acceptDeadline: string;
   status: string;
-  trip: Trip & { carrier?: { id: string; fullName: string; rating: number; kycTier: string } };
+  trip: Trip & { carrier?: { id: string; handle: string | null; rating: number; kycTier: string } };
 }
 
 export interface Shipment {

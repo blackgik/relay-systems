@@ -43,6 +43,11 @@ function toCandidate(trip: TripWithCarrier): TripCandidate {
   };
 }
 
+function publicTrip<T extends { carrierId: string }>(trip: T): Omit<T, 'carrierId'> {
+  const { carrierId: _carrierId, ...rest } = trip;
+  return rest;
+}
+
 @Injectable()
 export class ShipmentsService {
   constructor(
@@ -102,7 +107,8 @@ export class ShipmentsService {
       shipmentId,
       routes: found.map((route) => ({
         legs: route.legs.map((leg) => ({
-          trip: byId.get(leg.trip.id),
+          // Senders browsing routes see couriers by handle; the account id stays server-side.
+          trip: publicTrip(byId.get(leg.trip.id)!),
           fee: leg.fee,
           acceptDeadline: new Date(leg.trip.departAt.getTime() - DEADLINE_MS),
         })),
@@ -228,6 +234,17 @@ export class ShipmentsService {
       if (i === trips.length - 1 && trip.destCity !== shipment.destCity) {
         throw new BadRequestException('Last leg must end at the shipment destination');
       }
+    });
+  }
+
+  // The sender's own shipments, newest first. Powers the dashboard's
+  // "packages sent" stats; capped so a heavy sender can't page unbounded.
+  async listMine(senderId: string) {
+    return this.prisma.shipment.findMany({
+      where: { senderId },
+      include: { legs: { include: { trip: true }, orderBy: { sequence: 'asc' } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 
@@ -377,7 +394,7 @@ export class ShipmentsService {
             category: true,
             weightKg: true,
             photos: true,
-            sender: { select: { id: true, fullName: true, rating: true, kycTier: true } },
+            sender: { select: { handle: true, rating: true, kycTier: true } },
           },
         },
       },
@@ -400,7 +417,7 @@ export class ShipmentsService {
           orderBy: { sequence: 'asc' },
           include: {
             trip: {
-              include: { carrier: { select: { id: true, fullName: true, rating: true, kycTier: true } } },
+              include: { carrier: { select: { id: true, handle: true, rating: true, kycTier: true } } },
             },
           },
         },

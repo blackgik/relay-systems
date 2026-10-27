@@ -13,6 +13,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { LoginDto, RegisterDto } from './auth.dto';
 import { OtpService } from './otp.service';
 import { GoogleProfile } from './google-oauth.service';
+import { generateHandle } from '../people/handle';
 
 const ACCESS_TTL = '15m';
 const REFRESH_TTL = '7d';
@@ -66,6 +67,7 @@ export class AuthService {
       passwordHash,
     };
     let user: User;
+    const handle = generateHandle();
     try {
       // An unverified account can't hold an email hostage: only the inbox
       // owner can ever verify, so a fresh sign-up replaces the pending one.
@@ -73,7 +75,7 @@ export class AuthService {
       user =
         pending && !pending.emailVerifiedAt
           ? await this.prisma.user.update({ where: { id: pending.id }, data })
-          : await this.prisma.user.create({ data });
+          : await this.prisma.user.create({ data: { ...data, handle } });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException('Email or phone already registered');
@@ -156,6 +158,7 @@ export class AuthService {
         email: profile.email,
         fullName: profile.name,
         googleId: profile.sub,
+        handle: generateHandle(),
         emailVerifiedAt: new Date(),
         passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 10),
       },

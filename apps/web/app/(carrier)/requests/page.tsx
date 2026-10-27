@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Badge, Button, CircularLoader, Typography, toast } from '@/ui/elements';
 import { useRequireAuth } from '@/lib/auth';
 import { ApiError, api } from '@/lib/api';
@@ -16,7 +17,7 @@ interface IncomingLeg extends Leg {
     category: string;
     weightKg: number;
     photos: string[];
-    sender: { id: string; fullName: string; rating: number; kycTier: string };
+    sender: { handle: string | null; rating: number; kycTier: string };
   };
 }
 
@@ -104,7 +105,18 @@ export default function CarrierRequests() {
                 {formatMinors(leg.fee, leg.currency)}
               </Typography>
               <Typography size="body-m" color="secondary" as="p">
-                Sender: {leg.shipment.sender.fullName} ({leg.shipment.sender.kycTier})
+                Sender:{' '}
+                {leg.shipment.sender.handle ? (
+                  <Link
+                    href={`/dashboard/people/${leg.shipment.sender.handle}`}
+                    className="font-medium text-text-link hover:underline dark:text-harbor-200"
+                  >
+                    @{leg.shipment.sender.handle}
+                  </Link>
+                ) : (
+                  'Verified sender'
+                )}{' '}
+                ({leg.shipment.sender.kycTier})
               </Typography>
               <Typography size="body-s" color="secondary" as="p">
                 Departs {new Date(leg.trip.departAt).toLocaleString('en-GB')}

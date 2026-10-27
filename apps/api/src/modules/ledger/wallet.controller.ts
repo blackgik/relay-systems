@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { IsInt, IsString, Length, Min } from 'class-validator';
 import { WalletService } from './wallet.service';
 import { JwtGuard } from '../identity/jwt.guard';
@@ -25,8 +25,11 @@ export class WalletController {
   }
 
   @Get('transactions')
-  transactions(@CurrentUser() user: { id: string }, @Query('take') take?: string) {
-    return this.wallet.transactions(user.id, take ? Number(take) : 50);
+  transactions(
+    @CurrentUser() user: { id: string },
+    @Query('take', new DefaultValuePipe(50), ParseIntPipe) take: number
+  ) {
+    return this.wallet.transactions(user.id, take);
   }
 
   @Post('topup')

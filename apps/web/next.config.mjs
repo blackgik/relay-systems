@@ -9,6 +9,9 @@ const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: monorepoRoot,
+  // A second dev server (e.g. a preview on another port) must not share .next
+  // with the main one or both corrupt each other's manifests.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,

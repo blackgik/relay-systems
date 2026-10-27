@@ -9,6 +9,11 @@ import { CurrentUser } from '../identity/current-user.decorator';
 export class ShipmentsController {
   constructor(private shipments: ShipmentsService) {}
 
+  @Get()
+  listMine(@CurrentUser() user: { id: string }) {
+    return this.shipments.listMine(user.id);
+  }
+
   @Post()
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateShipmentDto) {
     return this.shipments.create(user.id, dto);

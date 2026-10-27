@@ -32,10 +32,11 @@
     "node_modules"
   ],
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "tailwind.config.ts"
+    "next-env.d.ts",
+    "tailwind.config.ts",
+    ".next-preview/types/**/*.ts"
   ]
 }

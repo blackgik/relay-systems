@@ -7,8 +7,11 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
+  MaxLength,
   Min,
 } from 'class-validator';
+import { MAX_PHOTO_LENGTH, PHOTO_MESSAGE, PHOTO_PATTERN } from '../../common/validators/photo';
 
 export class CreateShipmentDto {
   @IsString()
@@ -39,7 +42,10 @@ export class CreateShipmentDto {
   currency!: string;
 
   @IsArray()
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @Matches(PHOTO_PATTERN, { each: true, message: PHOTO_MESSAGE })
+  @MaxLength(MAX_PHOTO_LENGTH, { each: true })
   photos!: string[];
 
   @IsOptional()

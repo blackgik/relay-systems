@@ -11,9 +11,11 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { PspModule } from './modules/integrations/psp/psp.module';
 import { CustodyModule } from './modules/custody/custody.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
+import { PeopleModule } from './modules/people/people.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
-  imports: [PrismaModule, IdentityModule, KycModule, TripsModule, RoutingModule, ShipmentsModule, ChatModule, LedgerModule, PspModule, CustodyModule, DisputesModule],
+  imports: [PrismaModule, IdentityModule, KycModule, TripsModule, RoutingModule, ShipmentsModule, ChatModule, LedgerModule, PspModule, CustodyModule, DisputesModule, PeopleModule, DashboardModule],
   controllers: [AppController],
 })
 export class AppModule {}

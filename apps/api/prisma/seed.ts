@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { seedHistory } from './seed-history';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -14,11 +15,12 @@ async function main() {
 
   const ada = await prisma.user.upsert({
     where: { email: 'ada@relay.example' },
-    update: {},
+    update: { handle: 'harbor-heron-21' },
     create: {
       email: 'ada@relay.example',
       phone: '+234800000001',
       fullName: 'Ada Okafor',
+      handle: 'harbor-heron-21',
       passwordHash,
       emailVerifiedAt: new Date(),
       kycTier: 'T2',
@@ -26,11 +28,12 @@ async function main() {
   });
   const chika = await prisma.user.upsert({
     where: { email: 'chika@relay.example' },
-    update: {},
+    update: { handle: 'amber-otter-14' },
     create: {
       email: 'chika@relay.example',
       phone: '+234800000002',
       fullName: 'Chika Eze',
+      handle: 'amber-otter-14',
       passwordHash,
       emailVerifiedAt: new Date(),
       kycTier: 'T1',
@@ -39,11 +42,12 @@ async function main() {
   });
   const bola = await prisma.user.upsert({
     where: { email: 'bola@relay.example' },
-    update: {},
+    update: { handle: 'north-falcon-07' },
     create: {
       email: 'bola@relay.example',
       phone: '+234800000003',
       fullName: 'Bola Adeyemi',
+      handle: 'north-falcon-07',
       passwordHash,
       emailVerifiedAt: new Date(),
       kycTier: 'T2',
@@ -52,11 +56,12 @@ async function main() {
   });
   const dele = await prisma.user.upsert({
     where: { email: 'dele@relay.example' },
-    update: {},
+    update: { handle: 'steady-kudu-31' },
     create: {
       email: 'dele@relay.example',
       phone: '+234800000004',
       fullName: 'Dele Bakare',
+      handle: 'steady-kudu-31',
       passwordHash,
       emailVerifiedAt: new Date(),
       kycTier: 'T2',
@@ -65,11 +70,12 @@ async function main() {
   });
   await prisma.user.upsert({
     where: { email: 'admin@relay.example' },
-    update: {},
+    update: { handle: 'ops-desk-01' },
     create: {
       email: 'admin@relay.example',
       phone: '+234800000009',
       fullName: 'Relay Arbiter',
+      handle: 'ops-desk-01',
       passwordHash,
       emailVerifiedAt: new Date(),
       kycTier: 'T2',
@@ -196,6 +202,8 @@ async function main() {
       });
     }
   });
+
+  await seedHistory(prisma, { passwordHash, ada, chika, bola, dele });
 
   console.log(`Seeded corridor with first trip ${t1.id}. Demo password for all users: password123`);
 }

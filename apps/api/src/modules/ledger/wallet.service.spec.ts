@@ -58,4 +58,25 @@ describe('WalletService', () => {
       })
     );
   });
+
+  it('transactions clamps take into a safe page size', async () => {
+    const { prisma, service } = build();
+    prisma.ledgerAccount.findMany.mockResolvedValue([{ id: 'wallet:u1:NGN' }]);
+    prisma.ledgerEntry.findMany.mockResolvedValue([]);
+
+    await service.transactions('u1', 5000);
+    expect(prisma.ledgerEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 100 })
+    );
+
+    await service.transactions('u1', Number('abc'));
+    expect(prisma.ledgerEntry.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ take: 50 })
+    );
+
+    await service.transactions('u1', 0);
+    expect(prisma.ledgerEntry.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ take: 1 })
+    );
+  });
 });

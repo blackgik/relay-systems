@@ -1,6 +1,7 @@
-import { Body, Controller, NotFoundException, Param, Post } from '@nestjs/common';
+import { Body, Controller, Headers, NotFoundException, Param, Post } from '@nestjs/common';
 import { IsString } from 'class-validator';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { assertWebhookAuthorized } from '../../../common/webhooks/webhook-auth';
 import { WalletService } from '../../ledger/wallet.service';
 
 class PspWebhookDto {
@@ -11,8 +12,10 @@ class PspWebhookDto {
   status!: string;
 }
 
-// PSP webhooks are verified by signature (real providers), stored raw, and
-// processed idempotently by event ID. The mock provider skips the signature.
+// PSP webhooks settle money, so they authenticate with the shared
+// `x-webhook-secret` header (see common/webhooks/webhook-auth) until a
+// real provider's signature scheme is integrated. Events are then
+// processed idempotently by event ID.
 @Controller('payments/webhook')
 export class PspController {
   constructor(
@@ -21,7 +24,12 @@ export class PspController {
   ) {}
 
   @Post(':provider')
-  async webhook(@Param('provider') provider: string, @Body() dto: PspWebhookDto) {
+  async webhook(
+    @Param('provider') provider: string,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+    @Body() dto: PspWebhookDto
+  ) {
+    assertWebhookAuthorized(headers, 'PSP_WEBHOOK_SECRET');
     if (provider !== 'mock') throw new NotFoundException('Unknown provider');
     const eventId = `psp:${provider}:${dto.reference}`;
     const seen = await this.prisma.processedEvent.findUnique({ where: { id: eventId } });
