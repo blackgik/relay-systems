@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import { Button, CircularLoader, Input, Select, Typography, toast } from '@/ui/elements';
 import { AppShell } from '@/components/app-shell';
 import { useRequireAuth } from '@/lib/auth';
@@ -88,9 +89,12 @@ export default function Wallet() {
         <>
           <div className="flex flex-wrap gap-3">
             {accounts.length === 0 && (
-              <Typography size="body-m" color="secondary" as="p">
-                No balances yet — top up to get started.
-              </Typography>
+              <EmptyState
+                art="wallet"
+                className="w-full"
+                title="Your wallet is empty"
+                body="Top up below to pay for shipments. Courier earnings land here too."
+              />
             )}
             {accounts.map((account) => (
               <div key={account.id} className="rounded-lg bg-brand px-5 py-4">
@@ -127,9 +131,12 @@ export default function Wallet() {
               Movements
             </Typography>
             {lines.length === 0 && (
-              <Typography size="body-m" color="secondary" as="p">
-                No movements yet.
-              </Typography>
+              <EmptyState
+                art="wallet"
+                size="sm"
+                title="No movements yet"
+                body="Top-ups, escrow payments, payouts and refunds will be listed here."
+              />
             )}
             {lines.map((line) => (
               <div

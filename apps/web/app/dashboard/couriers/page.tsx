@@ -140,6 +140,7 @@ export default function CourierBoard() {
           </div>
         ) : items.length === 0 ? (
           <EmptyState
+            art="search"
             title="No couriers match"
             body={query ? `Nobody is listed for “${query}” right now.` : 'No open trips yet.'}
             cta={{ href: '/trips/new', label: 'Post your own trip' }}

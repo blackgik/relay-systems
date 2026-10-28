@@ -240,12 +240,25 @@ export class ShipmentsService {
   // The sender's own shipments, newest first. Powers the dashboard's
   // "packages sent" stats; capped so a heavy sender can't page unbounded.
   async listMine(senderId: string) {
-    return this.prisma.shipment.findMany({
+    const shipments = await this.prisma.shipment.findMany({
       where: { senderId },
-      include: { legs: { include: { trip: true }, orderBy: { sequence: 'asc' } } },
+      include: {
+        legs: {
+          orderBy: { sequence: 'asc' },
+          include: { trip: { include: { carrier: { select: { handle: true, kycTier: true, rating: true } } } } },
+        },
+        custody: { orderBy: { occurredAt: 'desc' }, take: 1, select: { type: true, occurredAt: true } },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+    // The sender's own list: couriers by handle only, and never the
+    // receiver's delivery-code hash.
+    return shipments.map(({ deliveryOtpHash: _otp, legs, custody, ...s }) => ({
+      ...s,
+      lastEvent: custody[0] ?? null,
+      legs: legs.map((leg) => ({ ...leg, trip: publicTrip(leg.trip) })),
+    }));
   }
 
   async get(id: string, userId: string) {

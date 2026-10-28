@@ -352,10 +352,13 @@ export class CustodyService {
       this.prisma.leg.findMany({
         where: { shipmentId },
         orderBy: { sequence: 'asc' },
-        include: { trip: true },
+        include: { trip: { include: { carrier: { select: { handle: true, kycTier: true, rating: true } } } } },
       }),
     ]);
-    return { shipment, legs, custody, pings: pings.reverse().map(serializePing) };
+    // Carriers on the shipment can track it too, so the receiver's
+    // delivery-code hash stays server-side.
+    const { deliveryOtpHash: _otp, legs: _legs, ...safeShipment } = shipment;
+    return { shipment: safeShipment, legs, custody, pings: pings.reverse().map(serializePing) };
   }
 
   private async assertNoOpenDispute(shipmentId: string) {

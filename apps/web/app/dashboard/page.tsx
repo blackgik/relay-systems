@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
   if (!loading && !user) return null;
   if (error) {
-    return <EmptyState title="Dashboard unavailable" body={error} cta={{ href: '/dashboard', label: 'Try again' }} />;
+    return <EmptyState art="error" title="Dashboard unavailable" body={error} cta={{ href: '/dashboard', label: 'Try again' }} />;
   }
   if (!data) return <Skeleton />;
 
@@ -146,7 +146,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : board.length === 0 ? (
-          <EmptyState title="No couriers match" body="Try another filter, or post your own trip." cta={{ href: '/trips/new', label: 'Post a trip' }} />
+          <EmptyState art="search" title="No couriers match" body="Try another filter, or post your own trip." cta={{ href: '/trips/new', label: 'Post a trip' }} />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {board.map((t) => (

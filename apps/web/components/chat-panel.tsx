@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import { io, Socket } from 'socket.io-client';
 import { Button, Typography } from '@/ui/elements';
 import { api, apiBase, ApiError } from '@/lib/api';
@@ -89,9 +90,7 @@ export function ChatPanel({
     <div className="flex flex-col gap-3">
       <div className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-lg border border-border p-3">
         {messages.length === 0 && (
-          <Typography size="body-s" color="secondary" as="p">
-            No messages yet. Say hello — phone numbers and emails are masked.
-          </Typography>
+          <EmptyState art="chat" size="sm" tone="plain" title="No messages yet" body="Say hello — phone numbers and emails are masked." />
         )}
         {messages.map((msg) => {
           const mine = msg.senderId === currentUserId;

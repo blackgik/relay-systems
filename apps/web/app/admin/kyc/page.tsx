@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import { Badge, Button, CircularLoader, Typography, toast } from '@/ui/elements';
 import { useRequireAuth } from '@/lib/auth';
 import { ApiError, api } from '@/lib/api';
@@ -78,9 +79,7 @@ export default function KycReview() {
       {error && <Typography size="body-m" color="error">{error}</Typography>}
       {!items && !error && <CircularLoader />}
       {items?.length === 0 && (
-        <Typography size="body-m" color="secondary">
-          The queue is empty.
-        </Typography>
+        <EmptyState art="shield" title="Review queue is clear" body="New KYC submissions that Paystack couldn't auto-verify will appear here." />
       )}
       {items?.map((s) => (
         <article key={s.userId} className="grid gap-6 rounded-2xl border border-border bg-card p-6 lg:grid-cols-[1fr_1.2fr]">

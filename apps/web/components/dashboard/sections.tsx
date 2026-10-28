@@ -365,7 +365,7 @@ export function TopCouriers({ top }: { top: TopCourier[] }) {
     >
       {top.length === 0 ? (
         <div className="px-3">
-          <EmptyState title="No verified couriers yet" body="Verified travellers with trips appear here, ranked by their track record." />
+          <EmptyState art="shield" title="No verified couriers yet" body="Verified travellers with trips appear here, ranked by their track record." />
         </div>
       ) : (
         <ol className="max-h-[520px] overflow-y-auto">
@@ -413,7 +413,7 @@ export function MyTrips({ trips }: { trips: BoardItem[] }) {
       }
     >
       {trips.length === 0 ? (
-        <EmptyState title="No upcoming trips" body="Post a trip you're already taking and start earning per kilo." cta={{ href: '/trips/new', label: 'Post a trip' }} />
+        <EmptyState art="route" title="No upcoming trips" body="Post a trip you're already taking and start earning per kilo." cta={{ href: '/trips/new', label: 'Post a trip' }} />
       ) : (
         <ul className="divide-y divide-border">
           {trips.map((t) => (
@@ -455,8 +455,8 @@ export function MyShipments({ data }: { data: DashboardSummary }) {
       title="My shipments"
       sub="Packages you've sent"
       action={
-        <Link href="/search" className="inline-flex items-center gap-1 text-body-s font-semi-bold text-text-link hover:underline dark:text-harbor-200">
-          Send another <ArrowUpRight size={14} />
+        <Link href="/shipments" className="inline-flex items-center gap-1 text-body-s font-semi-bold text-text-link hover:underline dark:text-harbor-200">
+          Track all <ArrowUpRight size={14} />
         </Link>
       }
     >

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import Link from 'next/link';
 import {
   Badge,
@@ -16,7 +17,11 @@ import {
 import { useRequireAuth } from '@/lib/auth';
 import { ApiError, api } from '@/lib/api';
 import { RouteOption, Shipment } from '@/lib/types';
+import type { BoardItem } from '@/lib/dashboard-types';
 import { formatMinors, toMinors } from '@/lib/money';
+import { CarrierBrowser } from '@/components/sender/carrier-browser';
+import { RequestModal } from '@/components/sender/request-modal';
+import { Segmented } from '@/components/dashboard/widgets';
 
 const CATEGORIES = ['fabric', 'fashion', 'electronics', 'documents', 'books', 'other'];
 const CURRENCIES = ['NGN', 'USD'];
@@ -32,9 +37,15 @@ function fmtDate(iso: string) {
 }
 
 type Step = 'details' | 'routes' | 'review';
+type Mode = 'couriers' | 'wizard';
 
 export default function Search() {
   const { user, token, loading } = useRequireAuth();
+  const [mode, setMode] = useState<Mode>('couriers');
+  const [selectedTrip, setSelectedTrip] = useState<BoardItem | null>(null);
+  const [boardVersion, setBoardVersion] = useState(0);
+  const [linkFrom, setLinkFrom] = useState('');
+  const [linkTo, setLinkTo] = useState('');
   const [step, setStep] = useState<Step>('details');
   const [busy, setBusy] = useState(false);
   const [shipment, setShipment] = useState<Shipment | null>(null);
@@ -57,6 +68,8 @@ export default function Search() {
     const to = q.get('to');
     if (from || to) {
       setForm((f) => ({ ...f, originCity: from || f.originCity, destCity: to || f.destCity }));
+      setLinkFrom(from ?? '');
+      setLinkTo(to ?? '');
     }
   }, []);
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -119,10 +132,46 @@ export default function Search() {
   };
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <Typography size="headline-m" weight="bold" color="primary" as="h1">
-        New shipment
-      </Typography>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Typography size="headline-m" weight="bold" color="primary" as="h1">
+            Send a package
+          </Typography>
+          <Typography size="body-m" color="secondary" as="p">
+            Pick a carrier who is accepting now, check their price per kg, then push your request straight to them.
+          </Typography>
+        </div>
+        <Segmented<Mode>
+          label="How to send"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'couriers', label: 'Choose a carrier' },
+            { value: 'wizard', label: 'Find a route for me' },
+          ]}
+        />
+      </div>
+
+      {mode === 'couriers' && (
+        <CarrierBrowser
+          token={token}
+          initialOrigin={linkFrom}
+          initialDestination={linkTo}
+          onRequest={setSelectedTrip}
+          refreshKey={boardVersion}
+        />
+      )}
+      <RequestModal
+        trip={selectedTrip}
+        token={token}
+        senderTier={user?.kycTier ?? 'T0'}
+        onClose={() => setSelectedTrip(null)}
+        onSent={() => setBoardVersion((v) => v + 1)}
+      />
+
+      {mode === 'wizard' && (
+      <div className="flex max-w-3xl flex-col gap-6">
       <Stepper
         steps={[
           { id: 'details', label: 'Details' },
@@ -184,9 +233,12 @@ export default function Search() {
         <div className="flex flex-col gap-4">
           {busy && <CircularLoader />}
           {!busy && routes.length === 0 && (
-            <Typography size="body-l" color="secondary" as="p">
-              No routes found for this shipment. Try different cities or dates.
-            </Typography>
+            <EmptyState
+              art="search"
+              title="No route found yet"
+              body="No traveller is heading that way in time. Try nearby cities, or pick a courier directly."
+              cta={{ onClick: () => setMode('couriers'), label: 'Browse carriers' }}
+            />
           )}
           {routes.map((route, i) => (
             <div key={i} className="flex flex-col gap-3 rounded-lg border border-border p-5">
@@ -236,11 +288,11 @@ export default function Search() {
             approvals and chat with carriers on the shipment page.
           </Typography>
           <div>
-            <Link href={`/shipments/${shipment.id}`}>
-              <Button label="Open shipment" />
-            </Link>
+            <Button label="Open shipment" href={`/shipments/${shipment.id}`} fit />
           </div>
         </div>
+      )}
+      </div>
       )}
     </div>
   );

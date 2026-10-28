@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { ArrowRight, BadgeCheck, Plane, Star, TrainFront, Truck } from 'lucide-react';
 import { handleHue, handleMonogram } from '@/lib/handle';
 import type { TripPhase } from '@/lib/dashboard-types';
+import { EmptyState as SharedEmptyState } from '@/components/empty-state';
 
 // Shared presentational pieces for the signed-in app. Colours come from the
 // semantic tokens so light and dark mode both work.
@@ -208,21 +209,9 @@ export function Delta({ value, invert = false }: { value: number | null; invert?
   );
 }
 
-export function EmptyState({ title, body, cta }: { title: string; body: string; cta?: { href: string; label: string } }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border-strong/60 bg-surface px-4 py-10 text-center">
-      <p className="text-title-s text-text-primary">{title}</p>
-      <p className="mx-auto mt-1 max-w-sm text-body-s text-text-tertiary">{body}</p>
-      {cta && (
-        <Link
-          href={cta.href}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-body-s font-semi-bold text-brand-foreground hover:bg-brand-focus"
-        >
-          {cta.label} <ArrowRight size={14} />
-        </Link>
-      )}
-    </div>
-  );
+/** Dashboard alias of the shared animated empty state (components/empty-state). */
+export function EmptyState(props: React.ComponentProps<typeof SharedEmptyState>) {
+  return <SharedEmptyState {...props} />;
 }
 
 export function Segmented<T extends string>({

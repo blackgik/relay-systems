@@ -286,6 +286,7 @@ export async function seedHistory(
           currency: 'NGN',
           photos: [],
           status: inTransit ? 'IN_TRANSIT' : 'FUNDED',
+          sealId: inTransit ? `SEAL-${100 + i}${p}` : null,
           totalPrice: Math.ceil(corridor.price * weight),
           createdAt: new Date(now - (3 + p) * DAY),
           legs: {
@@ -300,6 +301,20 @@ export async function seedHistory(
           },
         },
       });
+      // A parcel in a courier's custody always has the sealed pickup that put it there.
+      if (inTransit) {
+        await prisma.custodyEvent.create({
+          data: {
+            shipmentId: `live_shp_${i}_${p}`,
+            type: 'PICKUP',
+            toUserId: c.id,
+            sealId: `SEAL-${100 + i}${p}`,
+            photos: [],
+            idempotencyKey: `seed-pickup:live_shp_${i}_${p}`,
+            occurredAt: new Date(departAt.getTime() - (1 + p) * HOUR),
+          },
+        });
+      }
     }
   }
 

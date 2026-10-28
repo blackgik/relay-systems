@@ -30,6 +30,10 @@ export interface BoardItem {
   currency: string;
   categories: string[];
   international: boolean;
+  /** Requests close this long before departure (the courier's answer window). */
+  requestBy: string;
+  /** Open, has space, and still inside the request window — a request can succeed. */
+  bookable: boolean;
 }
 
 export interface MonthPoint {

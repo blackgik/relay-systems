@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import Link from 'next/link';
 import { Badge, Button, CircularLoader, Typography, toast } from '@/ui/elements';
 import { useRequireAuth } from '@/lib/auth';
@@ -73,9 +74,13 @@ export default function CarrierRequests() {
       </Typography>
       {!ready && <CircularLoader />}
       {ready && legs.length === 0 && (
-        <Typography size="body-l" color="secondary" as="p">
-          No requests yet. Post a trip to start receiving them.
-        </Typography>
+        <EmptyState
+          art="inbox"
+          title="No carry requests yet"
+          body="When a sender picks your trip, their request lands here for you to accept within 48 hours."
+          cta={{ href: '/trips/new', label: 'Post a trip' }}
+          secondary={{ href: '/trips', label: 'My trips' }}
+        />
       )}
       {legs.map((leg) => (
         <div key={leg.id} className="flex flex-col gap-3 rounded-lg border border-border p-5">

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
@@ -183,7 +184,8 @@ function Sidebar({
   const main: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/couriers', label: 'Courier board', icon: Users },
-    { href: '/search', label: 'Send a package', icon: Send, match: '/shipments' },
+    { href: '/search', label: 'Send a package', icon: Send },
+    { href: '/shipments', label: 'My shipments', icon: Package, match: '/shipments' },
     { href: '/trips', label: 'My trips', icon: Truck, match: '/trips' },
     { href: '/requests', label: 'Carry requests', icon: Luggage, badge: requests, match: '/legs' },
     { href: '/wallet', label: 'Wallet', icon: Wallet },
@@ -315,9 +317,7 @@ function NotificationBell({ notes }: { notes: Notification[] }) {
             <span className="text-body-s text-text-tertiary">{notes.length ? `Last 30 days` : ''}</span>
           </div>
           {notes.length === 0 ? (
-            <p className="px-4 py-8 text-center text-body-s text-text-tertiary">
-              You’re all caught up. Requests, payouts and shipment updates show up here.
-            </p>
+            <EmptyState art="inbox" size="sm" tone="plain" title="You’re all caught up" body="Requests, payouts and shipment updates show up here." />
           ) : (
             <ul className="max-h-[420px] divide-y divide-border overflow-y-auto">
               {notes.map((n) => {
@@ -438,7 +438,7 @@ const TITLES: [string, string][] = [
   ['/dashboard/settings', 'Settings'],
   ['/dashboard', 'Dashboard'],
   ['/search', 'Send a package'],
-  ['/shipments', 'Shipment'],
+  ['/shipments', 'My shipments'],
   ['/trips', 'My trips'],
   ['/carry', 'Carry'],
   ['/requests', 'Carry requests'],

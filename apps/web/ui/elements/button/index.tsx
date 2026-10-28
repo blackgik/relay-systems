@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import clsx from 'clsx';
 import styles from './index.module.scss';
 import { ButtonProps } from './index.types';
@@ -258,7 +259,17 @@ const Button: React.FC<ButtonProps> = (props) => {
     </>
   );
 
-  // ── Render as <a> when href is provided ──────────────────────────────────
+  // ── Render as a link when href is provided ───────────────────────────────
+  // In-app paths use next/link (client-side navigation, prefetch); external
+  // or new-tab links stay a plain <a>. Use this instead of wrapping a Button
+  // in a Link — that nests a <button> in an <a> and breaks width/alignment.
+  if (href && href.startsWith('/') && !target) {
+    return (
+      <Link href={href} className={buttonClass} aria-disabled={effectiveDisabled || undefined}>
+        {content}
+      </Link>
+    );
+  }
   if (href) {
     return (
       <a

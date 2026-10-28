@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import Link from 'next/link';
 import { Badge, Button, CircularLoader, Typography, toast } from '@/ui/elements';
 import { useRequireAuth } from '@/lib/auth';
@@ -75,9 +76,12 @@ export default function MyTrips() {
       </div>
       {!ready && <CircularLoader />}
       {ready && trips.length === 0 && (
-        <Typography size="body-l" color="secondary" as="p">
-          No trips yet.
-        </Typography>
+        <EmptyState
+          art="route"
+          title="No trips posted"
+          body="Going somewhere? List the route, date and spare kilos — senders on your way will find you."
+          cta={{ href: '/trips/new', label: 'Post your first trip' }}
+        />
       )}
       {trips.map((trip) => (
         <div key={trip.id} className="flex flex-col gap-2 rounded-lg border border-border p-5">

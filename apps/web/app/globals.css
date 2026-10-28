@@ -465,3 +465,151 @@ input[type='password']::-ms-clear {
   from { transform: translateY(0); }
   to { transform: translateY(-8px); }
 }
+
+/* ── Empty-state scene (components/empty-state.tsx) ─────────────────────── */
+:root {
+  --es-ink: #0b3b4b;
+  --es-halo: #ddf2f5;
+  --es-route: #79c4d2;
+  --es-paper: #ffffff;
+  --es-glass: rgba(221, 242, 245, 0.7);
+  --es-box-t: #ecc98f;
+  --es-box-l: #dcac68;
+  --es-box-r: #c99653;
+  --es-tape: #b7864a;
+}
+
+.dark {
+  --es-ink: #79c4d2;
+  --es-halo: #13303a;
+  --es-route: #2e6f80;
+  --es-paper: #1c2333;
+  --es-glass: rgba(19, 48, 58, 0.7);
+}
+
+.empty-scene .es-traveller {
+  offset-path: path('M18 110 C 50 70, 80 120, 110 92 S 170 50, 202 78');
+  offset-distance: 0%;
+  offset-rotate: 0deg;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .empty-scene .es-halo { transform-box: fill-box; transform-origin: center; animation: es-breathe 4s ease-in-out infinite; }
+  .empty-scene .es-route { animation: es-dash 1.4s linear infinite; }
+  .empty-scene .es-traveller { animation: es-travel 5s ease-in-out infinite; }
+  .empty-scene .es-ping { transform-box: fill-box; transform-origin: center; animation: es-ping 2s ease-out infinite; }
+  .empty-scene .es-bob { animation: es-bob 3s ease-in-out infinite; }
+  .empty-scene .es-shadow { transform-box: fill-box; transform-origin: center; animation: es-shadow 3s ease-in-out infinite; }
+  .empty-scene .es-tilt { transform-box: fill-box; transform-origin: 50% 100%; animation: es-tilt 2.6s ease-in-out infinite; }
+  .empty-scene .es-drop { animation: es-drop 2.8s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+  .empty-scene .es-coin { animation: es-coin 2.4s cubic-bezier(0.55, 0, 0.7, 0.4) infinite; }
+  .empty-scene .es-sweep { animation: es-sweep 3.2s ease-in-out infinite; }
+  .empty-scene .es-check { stroke-dasharray: 1; animation: es-check 3s ease-in-out infinite; }
+  .empty-scene .es-pop { transform-box: fill-box; transform-origin: 20% 100%; animation: es-pop 3.6s ease-in-out infinite; }
+  .empty-scene .es-pop-2 { animation-delay: 1.2s; }
+  .empty-scene .es-dot { animation: es-dot 1.2s ease-in-out infinite; }
+  .empty-scene .es-dot-1 { animation-delay: 0.2s; }
+  .empty-scene .es-dot-2 { animation-delay: 0.4s; }
+  .empty-scene .es-blink { animation: es-blink 1.6s ease-in-out infinite; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-scene .es-traveller { offset-distance: 55%; opacity: 1; }
+}
+
+@keyframes es-breathe { 0%, 100% { transform: scale(0.96); } 50% { transform: scale(1.04); } }
+@keyframes es-dash { to { stroke-dashoffset: -22; } }
+@keyframes es-travel {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes es-ping { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.6); opacity: 0; } }
+@keyframes es-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes es-shadow { 0%, 100% { transform: scale(1); opacity: 0.15; } 50% { transform: scale(0.8); opacity: 0.08; } }
+@keyframes es-tilt { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes es-drop {
+  0% { transform: translateY(-26px); opacity: 0; }
+  20% { opacity: 1; }
+  55%, 70% { transform: translateY(14px); opacity: 1; }
+  85%, 100% { transform: translateY(22px); opacity: 0; }
+}
+@keyframes es-coin {
+  0% { transform: translateY(-20px); opacity: 0; }
+  15% { opacity: 1; }
+  60% { transform: translateY(22px); opacity: 1; }
+  70%, 100% { transform: translateY(26px); opacity: 0; }
+}
+@keyframes es-sweep { 0%, 100% { transform: translate(-22px, 4px) rotate(-8deg); } 50% { transform: translate(6px, -6px) rotate(6deg); } }
+@keyframes es-check { 0%, 15% { stroke-dashoffset: 1; } 45%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 1; } }
+@keyframes es-pop { 0%, 100% { transform: scale(0.92); opacity: 0.75; } 25%, 60% { transform: scale(1); opacity: 1; } }
+@keyframes es-dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-3px); opacity: 1; } }
+@keyframes es-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ── Shipment tracking (components/shipments/*) ─────────────────────────── */
+:root {
+  --tr-map-bg: #eef1f5;
+  --tr-block: #ffffff;
+  --tr-route: #9aa8b8;
+  --tr-done: #0b3b4b;
+  --tr-ink: #0b3b4b;
+  /* Journey stage slots — validated categorical set (dataviz checker, light). */
+  --tr-stage-0: #8b5cf6;
+  --tr-stage-1: #0891a8;
+  --tr-stage-2: #d97706;
+  --tr-stage-3: #2563eb;
+  --tr-stage-0-ink: #ffffff;
+  --tr-stage-1-ink: #ffffff;
+  --tr-stage-2-ink: #1f1300;
+  --tr-stage-3-ink: #ffffff;
+}
+
+.dark {
+  --tr-map-bg: #1a2130;
+  --tr-block: #222b3b;
+  --tr-route: #4a5873;
+  --tr-done: #79c4d2;
+  --tr-ink: #79c4d2;
+  --tr-stage-0: #8b74f5;
+  --tr-stage-1: #1aa0b6;
+  --tr-stage-2: #c27a0a;
+  --tr-stage-3: #3b82f6;
+  --tr-stage-0-ink: #ffffff;
+  --tr-stage-1-ink: #04161a;
+  --tr-stage-2-ink: #1f1300;
+  --tr-stage-3-ink: #ffffff;
+}
+
+.tr-road {
+  background-image: repeating-linear-gradient(90deg, hsl(var(--border-strong) / 0.6) 0 18px, transparent 18px 32px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tr-fade { animation: tr-fade 0.45s ease-out both; }
+  .tr-rise { animation: tr-rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .tr-grow { transform-origin: left; animation: tr-grow 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .tr-slide-in { animation: tr-slide 0.3s ease-out both; }
+  .tr-live { animation: tr-live 1.8s ease-in-out infinite; }
+  .tr-route-draw { stroke-dashoffset: 1200; animation: tr-draw 1.6s ease-out forwards; }
+  .tr-pulse { transform-box: fill-box; transform-origin: center; animation: tr-pulse 1.8s ease-out infinite; }
+  .tr-pulse-dot { animation: tr-ping 1.6s ease-out infinite; }
+  /* Hero vehicle: idles when parked, drives (bounce + scrolling road) when moving. */
+  .tr-stage .tr-vehicle { animation: tr-idle 3.2s ease-in-out infinite; }
+  .tr-stage.tr-moving .tr-vehicle { animation: tr-drive 0.5s ease-in-out infinite alternate; }
+  .tr-stage.tr-moving .tr-road { animation: tr-road 0.6s linear infinite; }
+  .tr-stage .tr-vehicle { animation-fill-mode: both; }
+}
+
+@keyframes tr-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes tr-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tr-grow { from { transform: scaleX(0); opacity: 0.3; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes tr-slide { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes tr-live { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--info) / 0.5); } 50% { box-shadow: 0 0 0 5px hsl(var(--info) / 0); } }
+@keyframes tr-draw { to { stroke-dashoffset: 0; } }
+@keyframes tr-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.8); opacity: 0; } }
+@keyframes tr-ping { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes tr-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes tr-drive { from { transform: translateY(0); } to { transform: translateY(-1.5px); } }
+@keyframes tr-road { to { background-position: -32px 0; } }

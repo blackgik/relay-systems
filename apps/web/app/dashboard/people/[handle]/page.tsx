@@ -45,7 +45,7 @@ export default function PersonPage() {
   }, [token, handle]);
 
   if (!loading && !user) return null;
-  if (error) return <EmptyState title="Profile not found" body={error} cta={{ href: '/dashboard/couriers', label: 'Browse couriers' }} />;
+  if (error) return <EmptyState art="error" title="Profile not found" body={error} cta={{ href: '/dashboard/couriers', label: 'Browse couriers' }} />;
   if (!profile) return <div className="h-96 animate-pulse rounded-[22px] bg-muted" aria-label="Loading profile" />;
 
   const c = profile.courier;
@@ -209,7 +209,7 @@ export default function PersonPage() {
         <div className="grid gap-5 xl:grid-cols-[1fr_2fr]">
           <Card title="Routes travelled" sub="City pairs this courier has carried on">
             {c.routes.length === 0 ? (
-              <EmptyState title="No routes yet" body="Completed trips will show here." />
+              <EmptyState art="route" title="No routes yet" body="Completed trips will show here." />
             ) : (
               <ul className="divide-y divide-border">
                 {c.routes.map((r) => (
@@ -230,7 +230,7 @@ export default function PersonPage() {
           </Card>
           <Card title="Live trips" sub="Book space directly on an open trip">
             {c.activeTrips.length === 0 ? (
-              <EmptyState title="No open trips" body="When this courier lists a trip, it appears here." />
+              <EmptyState art="route" title="No open trips" body="When this courier lists a trip, it appears here." />
             ) : (
               <div className="grid gap-4 lg:grid-cols-2">
                 {c.activeTrips.map((t) => (

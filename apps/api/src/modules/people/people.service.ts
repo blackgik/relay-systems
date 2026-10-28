@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { courierScore, tripPhase, tripProgress } from '../dashboard/metrics';
+import { ACCEPT_DEADLINE_HOURS } from '@relay/shared';
 import { generateHandle, handleProblem } from './handle';
 
 // Everything returned from this service is visible to other users. It is
@@ -22,6 +23,10 @@ type BoardTrip = Prisma.TripGetPayload<{ include: typeof boardTripInclude }>;
 
 export function toBoardItem(trip: BoardTrip, viewerId: string | null, now = new Date()) {
   const onHand = trip.legs.filter((l) => l.status === 'IN_CUSTODY');
+  // Couriers get ACCEPT_DEADLINE_HOURS to answer, so requests close that long
+  // before departure. The board says so up front instead of letting a
+  // request fail at submit time.
+  const requestBy = new Date(trip.departAt.getTime() - ACCEPT_DEADLINE_HOURS * 3600 * 1000);
   return {
     tripId: trip.id,
     handle: trip.carrier.handle,
@@ -48,6 +53,8 @@ export function toBoardItem(trip: BoardTrip, viewerId: string | null, now = new 
     currency: trip.currency,
     categories: trip.categories,
     international: trip.international,
+    requestBy,
+    bookable: trip.status === 'OPEN' && trip.remainingKg > 0 && requestBy > now,
   };
 }
 
