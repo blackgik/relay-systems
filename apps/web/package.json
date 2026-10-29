@@ -9,6 +9,7 @@
     "clsx": "^1.2.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.28.0",
+    "motion": "13.5.1",
     "next": "^15",
     "postcss": "^8.4.23",
     "qrcode": "1.5.4",

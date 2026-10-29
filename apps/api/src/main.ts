@@ -5,7 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   // KYC uploads (ID photo + selfie) arrive as data URLs; the 100kb default is too small.
   app.useBodyParser('json', { limit: '12mb' });
   // The web app runs on a different origin; auth is bearer tokens, not cookies.

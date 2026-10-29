@@ -170,7 +170,9 @@ export class DashboardService {
       this.prisma.kycProfile.findUnique({ where: { userId }, select: { status: true, updatedAt: true, reviewNote: true } }),
     ]);
 
-    type Note = { id: string; kind: string; title: string; body: string; href: string; at: Date; tone: 'info' | 'success' | 'warning' | 'danger' };
+    // `actionable`: waiting on this user to do something (answer a request, pay,
+    // reroute, follow up a dispute). Drives the Deliveries badge and tab counts.
+    type Note = { id: string; kind: string; title: string; body: string; href: string; at: Date; tone: 'info' | 'success' | 'warning' | 'danger'; actionable?: boolean };
     const notes: Note[] = [];
 
     for (const l of requests) {
@@ -180,8 +182,9 @@ export class DashboardService {
         tone: 'info',
         title: 'New carry request',
         body: `${l.shipment.weightKg} kg of ${l.shipment.category} on ${l.trip.originCity} → ${l.trip.destCity}. Respond before ${l.acceptDeadline.toISOString().slice(0, 16).replace('T', ' ')} UTC.`,
-        href: '/requests',
+        href: `/deliveries/carrying/${l.id}`,
         at: l.shipment.createdAt,
+        actionable: true,
       });
     }
 
@@ -201,8 +204,9 @@ export class DashboardService {
         kind: 'SHIPMENT',
         ...n,
         body: `${s.originCity} → ${s.destCity}. ${n.body}`,
-        href: s.status === 'APPROVED' ? `/shipments/${s.id}/pay` : `/shipments/${s.id}`,
+        href: s.status === 'APPROVED' ? `/shipments/${s.id}/pay` : `/deliveries/sending/${s.id}`,
         at: s.custody[0]?.occurredAt ?? s.createdAt,
+        actionable: ['APPROVED', 'REROUTING', 'DISPUTED'].includes(s.status),
       });
     }
 

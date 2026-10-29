@@ -75,7 +75,7 @@ export default function DashboardPage() {
     mode === 'courier'
       ? [
           { icon: Luggage, label: 'Goods on hand', value: data.courier.onHand, sub: `${data.courier.kgOnHand} kg in your custody`, href: '/trips' },
-          { icon: PackageCheck, label: 'Pending requests', value: data.courier.pendingRequests, sub: 'Waiting for your answer', href: '/requests' },
+          { icon: PackageCheck, label: 'Pending requests', value: data.courier.pendingRequests, sub: 'Waiting for your answer', href: '/deliveries/carrying' },
           { icon: Weight, label: 'Kg carried', value: data.courier.kgCarried, sub: `${data.courier.carriedThisMonth} delivered this month` },
           { icon: Route, label: 'Trips taken', value: data.courier.tripsTaken, sub: `${data.courier.routesTaken} distinct routes` },
         ]
@@ -131,7 +131,7 @@ export default function DashboardPage() {
               ]}
             />
             <Link
-              href="/dashboard/couriers"
+              href="/search"
               className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-body-s font-semi-bold text-text-primary hover:bg-surface"
             >
               Full board <ArrowUpRight size={14} />
@@ -146,7 +146,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : board.length === 0 ? (
-          <EmptyState art="search" title="No couriers match" body="Try another filter, or post your own trip." cta={{ href: '/trips/new', label: 'Post a trip' }} />
+          <EmptyState art="search" title="No couriers match" body="Try another filter, or post your own trip." cta={{ href: '/trips?new=1', label: 'Post a trip' }} />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {board.map((t) => (

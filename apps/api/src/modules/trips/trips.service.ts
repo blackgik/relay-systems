@@ -9,7 +9,50 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
 import { meetsTier } from '../kyc/kyc-tiers';
 import { KycService } from '../kyc/kyc.service';
-import { CreateTripDto, TravelProofDto, UpdateTripDto } from './trips.dto';
+import { CreateTripDto, JOURNEY_STAGES, TravelProofDto, UpdateTripDto } from './trips.dto';
+
+// Leg states that mean the package is (or was) in this carrier's hands.
+const CARRIED = ['ACCEPTED', 'AWAITING_PICKUP', 'IN_CUSTODY', 'HANDED_OFF', 'SETTLED'] as const;
+// Leg states where the fee is earned money, not just a pending request.
+const EARNED = ['HANDED_OFF', 'SETTLED'] as const;
+
+interface MyTripLeg {
+  id: string;
+  status: string;
+  fee: number;
+  senderRating: number | null;
+  shipment: { id: string; category: string; weightKg: number; status: string; attestation: { reference: string } | null };
+}
+
+/** What one of the carrier's own trips carried, earned and was rated. */
+export function myTripStats(legs: MyTripLeg[]) {
+  const carried = legs.filter((l) => (CARRIED as readonly string[]).includes(l.status));
+  const rated = carried.filter((l) => l.senderRating !== null);
+  return {
+    stats: {
+      packagesCarried: carried.length,
+      kgCarried: Math.round(carried.reduce((s, l) => s + l.shipment.weightKg, 0) * 10) / 10,
+      earned: legs.filter((l) => (EARNED as readonly string[]).includes(l.status)).reduce((s, l) => s + l.fee, 0),
+      bookedFees: carried.reduce((s, l) => s + l.fee, 0),
+      delivered: legs.filter((l) => l.status === 'SETTLED').length,
+      rating: rated.length ? Math.round((rated.reduce((s, l) => s + l.senderRating!, 0) / rated.length) * 10) / 10 : null,
+      ratings: rated.length,
+    },
+    // Packages in the bag (and requests waiting on it), by shipment, never by sender.
+    packages: legs
+      .filter((l) => l.status === 'PROPOSED' || (CARRIED as readonly string[]).includes(l.status))
+      .map((l) => ({
+        legId: l.id,
+        shipmentId: l.shipment.id,
+        status: l.status,
+        category: l.shipment.category,
+        weightKg: l.shipment.weightKg,
+        fee: l.fee,
+        rating: l.senderRating,
+        declaration: l.shipment.attestation?.reference ?? null,
+      })),
+  };
+}
 
 export interface TripSearchFilters {
   origin?: string;
@@ -54,14 +97,20 @@ export class TripsService {
         currency: dto.currency.toUpperCase(),
         categories: dto.categories,
         international: dto.international,
+        excludedItems: (dto.excludedItems ?? []).map((s) => s.trim()).filter(Boolean),
+        excludedFeePerKg: dto.excludedFeePerKg ?? null,
         status: 'OPEN',
       },
     });
   }
 
   list(filters: TripSearchFilters) {
-    const where: Prisma.TripWhereInput = { status: 'OPEN' };
-    if (filters.carrierId) where.carrierId = filters.carrierId;
+    // Public search only ever shows open trips. "My trips" (carrierId set)
+    // shows the carrier's whole history — former, cancelled and completed
+    // trips included — with what each trip carried and earned.
+    const where: Prisma.TripWhereInput = filters.carrierId
+      ? { carrierId: filters.carrierId }
+      : { status: 'OPEN' };
     if (filters.origin) where.originCity = filters.origin;
     if (filters.dest) where.destCity = filters.dest;
     if (filters.from && filters.to && new Date(filters.from) > new Date(filters.to)) {
@@ -83,10 +132,37 @@ export class TripsService {
           _count: {
             select: { legs: { where: { status: { in: ['ACCEPTED', 'AWAITING_PICKUP', 'IN_CUSTODY'] } } } },
           },
+          // Only loaded for "My trips"; powers the per-trip kg/earnings.
+          ...(filters.carrierId
+            ? {
+                legs: {
+                  orderBy: { acceptDeadline: 'asc' as const },
+                  select: {
+                    id: true,
+                    status: true,
+                    fee: true,
+                    senderRating: true,
+                    shipment: {
+                      select: {
+                        id: true,
+                        category: true,
+                        weightKg: true,
+                        status: true,
+                        attestation: { select: { reference: true } },
+                      },
+                    },
+                  },
+                },
+              }
+            : {}),
         },
       })
       .then((trips) =>
-        filters.carrierId ? trips : trips.map(({ carrierId: _carrierId, ...trip }) => trip)
+        filters.carrierId
+          ? (trips as unknown as (Omit<(typeof trips)[number], 'legs'> & { legs?: MyTripLeg[] })[]).map(
+              ({ legs = [], ...trip }) => ({ ...trip, ...myTripStats(legs) })
+            )
+          : trips.map(({ carrierId: _carrierId, ...trip }) => trip)
       );
   }
 
@@ -131,6 +207,24 @@ export class TripsService {
         }
         await this.outbox.write(tx, 'trip.cancelled', { tripId: id });
         return cancelled;
+      });
+    }
+
+    if (dto.journeyStage) {
+      if (trip.status === 'CANCELLED') throw new BadRequestException('A cancelled trip cannot move');
+      const next = JOURNEY_STAGES.indexOf(dto.journeyStage as (typeof JOURNEY_STAGES)[number]);
+      const current = JOURNEY_STAGES.indexOf(
+        (trip.journeyStage ?? 'NOT_STARTED') as (typeof JOURNEY_STAGES)[number]
+      );
+      if (next <= current) {
+        throw new BadRequestException(
+          `Journey already at ${trip.journeyStage ?? 'NOT_STARTED'}; stages only move forward`
+        );
+      }
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.trip.update({ where: { id }, data: { journeyStage: dto.journeyStage } });
+        await this.outbox.write(tx, 'trip.journey', { tripId: id, stage: dto.journeyStage });
+        return updated;
       });
     }
 

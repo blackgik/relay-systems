@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { HeroScene } from '@/components/marketing/hero-scene';
 import { RouteSearch } from '@/components/marketing/route-search';
+import { TrustFlow } from '@/components/marketing/trust-flow';
 import {
   CtaBand,
   Eyebrow,
@@ -219,6 +220,19 @@ export default function Home() {
               <p className="text-caption-r text-text-secondary">{step.body}</p>
             </div>
           ))}
+        </div>
+      </Section>
+
+      {/* ── Trust flow ──────────────────────────────────────────────────── */}
+      <Section className="pt-0 md:pt-0" id="trust-flow">
+        <SectionHeading
+          eyebrow="Safe by design"
+          title="From request to"
+          accent="signed, sealed and acknowledged."
+          body="Every package follows the same path: checked people, a signed agreement, tracked custody, and a review each way."
+        />
+        <div className="mt-10">
+          <TrustFlow />
         </div>
       </Section>
 

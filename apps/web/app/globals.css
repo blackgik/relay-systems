@@ -613,3 +613,45 @@ input[type='password']::-ms-clear {
 @keyframes tr-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes tr-drive { from { transform: translateY(0); } to { transform: translateY(-1.5px); } }
 @keyframes tr-road { to { background-position: -32px 0; } }
+
+/* A4 declaration: print only the sheet, edge to edge. */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  body:has(.declaration-page) > *:not(:has(.declaration-page)):not(.declaration-page) {
+    display: none !important;
+  }
+}
+
+/* Landing "trust flow": one package from request to acknowledgement. */
+@media (prefers-reduced-motion: no-preference) {
+  .tf-scene { animation: tr-fade 0.45s ease-out both; }
+  .tf-timer { animation-name: tf-timer; animation-timing-function: linear; animation-fill-mode: both; }
+  .tf-drop { animation: tf-drop 0.9s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+  .tf-dash { animation: es-dash 1s linear infinite; }
+  .tf-star { transform-box: fill-box; transform-origin: center; animation: tf-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+  .tf-pop { animation: tf-pop-up 0.4s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+  .tf-stamp { transform-box: fill-box; transform-origin: center; animation: tf-pop 0.5s 1.3s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+  .tf-check { stroke-dasharray: 48; animation: tf-check 0.6s 1.5s ease-out both; }
+  .tf-rise { animation: tr-rise 0.6s ease-out both; }
+  .tf-sign { stroke-dasharray: 120; animation: tf-sign 1.2s 0.5s ease-in-out both; }
+  .tf-thump { transform-box: fill-box; transform-origin: center; animation: tf-thump 0.5s 1.8s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+  .tf-drive { animation: tf-drive 3.4s cubic-bezier(0.45, 0, 0.3, 1) both; }
+  .tf-road { animation: tf-road 0.5s linear infinite; }
+  .tf-ping { transform-box: fill-box; transform-origin: center; animation: tf-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+}
+@keyframes tf-timer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes tf-drop { from { transform: translateY(-60px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tf-pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes tf-pop-up { from { transform: translateY(14px) scale(0.6); opacity: 0; } }
+@keyframes tf-check { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
+@keyframes tf-sign { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+@keyframes tf-thump { 0% { transform: scale(2.2) rotate(-30deg); opacity: 0; } 70% { transform: scale(0.94) rotate(-12deg); opacity: 1; } 100% { transform: scale(1) rotate(-12deg); opacity: 1; } }
+@keyframes tf-drive { from { transform: translateX(-10px); } to { transform: translateX(200px); } }
+@keyframes tf-road { to { stroke-dashoffset: -26; } }

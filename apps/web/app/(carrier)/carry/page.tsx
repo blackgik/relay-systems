@@ -16,10 +16,10 @@ export default function CarrierHome() {
         <Link href="/trips" className="text-body-m font-medium text-text-brand">
           My trips →
         </Link>
-        <Link href="/trips/new" className="text-body-m font-medium text-text-brand">
+        <Link href="/trips?new=1" className="text-body-m font-medium text-text-brand">
           Post a trip →
         </Link>
-        <Link href="/requests" className="text-body-m font-medium text-text-brand">
+        <Link href="/deliveries/carrying" className="text-body-m font-medium text-text-brand">
           Incoming requests →
         </Link>
       </div>

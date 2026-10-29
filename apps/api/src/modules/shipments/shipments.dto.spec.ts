@@ -1,6 +1,7 @@
+import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateShipmentDto } from './shipments.dto';
+import { CreateShipmentDto, SelectRouteDto } from './shipments.dto';
 
 const base = {
   receiverName: 'Ada Lovelace',
@@ -36,5 +37,19 @@ describe('CreateShipmentDto photos', () => {
   it('rejects oversized photo payloads', async () => {
     const huge = `data:image/png;base64,${'A'.repeat(5_600_000)}`;
     await expect(photoErrors([huge])).resolves.not.toHaveLength(0);
+  });
+});
+
+describe('SelectRouteDto', () => {
+  const errors = (body: object) => validate(plainToInstance(SelectRouteDto, body));
+
+  it('validates the nested declaration when one is sent', async () => {
+    await expect(errors({ tripIds: ['t1'] })).resolves.toHaveLength(0);
+    await expect(
+      errors({ tripIds: ['t1'], attestation: { accepted: true, signedName: 'Ada Okafor', statementVersion: 'v1' } })
+    ).resolves.toHaveLength(0);
+    await expect(
+      errors({ tripIds: ['t1'], attestation: { accepted: 'yes', signedName: 'A', statementVersion: 'v1' } })
+    ).resolves.not.toHaveLength(0);
   });
 });

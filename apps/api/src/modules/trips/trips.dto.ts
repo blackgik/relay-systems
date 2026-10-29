@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -8,8 +9,18 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   Min,
 } from 'class-validator';
+
+export const JOURNEY_STAGES = [
+  'NOT_STARTED',
+  'STARTED',
+  'ALMOST_THERE',
+  'ARRIVED',
+  'AWAITING_PICKUP',
+  'DELIVERED',
+] as const;
 
 export class CreateTripDto {
   @IsString()
@@ -50,6 +61,20 @@ export class CreateTripDto {
 
   @IsBoolean()
   international!: boolean;
+
+  /** Items the carrier will not transport (senders see this before booking). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  excludedItems?: string[];
+
+  /** Added per-kg fee (minor units) that can convince the carrier to take an excluded item. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  excludedFeePerKg?: number;
 }
 
 export class UpdateTripDto {
@@ -64,6 +89,11 @@ export class UpdateTripDto {
   @IsOptional()
   @IsIn(['CANCELLED'])
   status?: string;
+
+  /** Carrier-reported journey progress; only moves forward. */
+  @IsOptional()
+  @IsIn(JOURNEY_STAGES)
+  journeyStage?: string;
 }
 
 export class TravelProofDto {

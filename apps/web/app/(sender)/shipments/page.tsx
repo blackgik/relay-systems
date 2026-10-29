@@ -1,5 +1,6 @@
-import { ShipmentsWorkspace } from '@/components/shipments/workspace';
+import { redirect } from 'next/navigation';
 
-export default function ShipmentsPage() {
-  return <ShipmentsWorkspace />;
+// My shipments now live in Deliveries → Sending.
+export default function ShipmentsRedirect() {
+  redirect('/deliveries/sending');
 }

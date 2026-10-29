@@ -73,11 +73,17 @@ export function MoneyChart({
   projected,
   currency,
   height = 240,
+  labels = { earned: 'Earned carrying', spent: 'Spent sending' },
+  ariaLabel = 'Monthly earnings and spending, with next month projected',
 }: {
   series: MonthPoint[];
-  projected: number;
+  /** Next month's projected earnings; null draws no projection column. */
+  projected: number | null;
   currency: string;
   height?: number;
+  /** Series names (the wallet calls them money in / money out). */
+  labels?: { earned: string; spent: string };
+  ariaLabel?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -89,7 +95,10 @@ export function MoneyChart({
     const d = new Date(Date.UTC(y, m, 1));
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
   })();
-  const groups = [...series.map((s) => ({ ...s, projected: false })), { month: nextMonth, earned: projected, spent: 0, net: projected, projected: true }];
+  const groups = [
+    ...series.map((s) => ({ ...s, projected: false })),
+    ...(projected === null ? [] : [{ month: nextMonth, earned: projected, spent: 0, net: projected, projected: true }]),
+  ];
 
   const pad = { top: 16, right: 8, bottom: 28, left: 52 };
   const innerW = Math.max(0, width - pad.left - pad.right);
@@ -103,9 +112,9 @@ export function MoneyChart({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-body-s text-text-secondary">
-        <span className="flex items-center gap-1.5"><Swatch kind="earned" /> Earned carrying</span>
-        <span className="flex items-center gap-1.5"><Swatch kind="spent" /> Spent sending</span>
-        <span className="flex items-center gap-1.5"><Swatch kind="projected" /> Projected</span>
+        <span className="flex items-center gap-1.5"><Swatch kind="earned" /> {labels.earned}</span>
+        <span className="flex items-center gap-1.5"><Swatch kind="spent" /> {labels.spent}</span>
+        {projected !== null && <span className="flex items-center gap-1.5"><Swatch kind="projected" /> Projected</span>}
         <button
           type="button"
           onClick={() => setTable((t) => !t)}
@@ -120,8 +129,8 @@ export function MoneyChart({
           <thead className="text-text-tertiary">
             <tr>
               <th className="py-2 font-medium">Month</th>
-              <th className="py-2 text-right font-medium">Earned</th>
-              <th className="py-2 text-right font-medium">Spent</th>
+              <th className="py-2 text-right font-medium">{labels.earned}</th>
+              <th className="py-2 text-right font-medium">{labels.spent}</th>
               <th className="py-2 text-right font-medium">Net</th>
             </tr>
           </thead>
@@ -139,7 +148,7 @@ export function MoneyChart({
       ) : (
         <div ref={ref} className="relative" onMouseLeave={() => setHover(null)}>
           {width > 0 && (
-            <svg width={width} height={height} role="img" aria-label="Monthly earnings and spending, with next month projected">
+            <svg width={width} height={height} role="img" aria-label={ariaLabel}>
               <defs>
                 <pattern id={patternId} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                   <rect width="5" height="5" fill="var(--chart-earned)" opacity="0.18" />
@@ -180,7 +189,7 @@ export function MoneyChart({
                       onMouseEnter={() => setHover(i)}
                       onFocus={() => setHover(i)}
                       tabIndex={0}
-                      aria-label={`${monthLabel(g.month, 'long')}: earned ${formatMinors(g.earned, currency)}${g.projected ? ' projected' : `, spent ${formatMinors(g.spent, currency)}`}`}
+                      aria-label={`${monthLabel(g.month, 'long')}: ${labels.earned} ${formatMinors(g.earned, currency)}${g.projected ? ' projected' : `, ${labels.spent} ${formatMinors(g.spent, currency)}`}`}
                     />
                   </g>
                 );
@@ -195,13 +204,13 @@ export function MoneyChart({
                 {groups[hover].projected && <span className="font-normal text-text-tertiary"> · projected</span>}
               </p>
               <p className="flex items-center gap-2 text-text-secondary">
-                <Swatch kind={groups[hover].projected ? 'projected' : 'earned'} /> Earned
+                <Swatch kind={groups[hover].projected ? 'projected' : 'earned'} /> {labels.earned}
                 <span className="ml-auto pl-4 font-semi-bold text-text-primary">{formatMinors(groups[hover].earned, currency)}</span>
               </p>
               {!groups[hover].projected && (
                 <>
                   <p className="flex items-center gap-2 text-text-secondary">
-                    <Swatch kind="spent" /> Spent
+                    <Swatch kind="spent" /> {labels.spent}
                     <span className="ml-auto pl-4 font-semi-bold text-text-primary">{formatMinors(groups[hover].spent, currency)}</span>
                   </p>
                   <p className="mt-1 flex border-t border-border pt-1 text-text-secondary">

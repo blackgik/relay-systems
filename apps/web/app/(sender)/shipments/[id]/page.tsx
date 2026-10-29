@@ -1,9 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useParams } from 'next/navigation';
-import { ShipmentsWorkspace } from '@/components/shipments/workspace';
-
-export default function ShipmentPage() {
-  const { id } = useParams<{ id: string }>();
-  return <ShipmentsWorkspace selectedId={id} />;
+export default async function ShipmentRedirect({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/deliveries/sending/${encodeURIComponent(id)}`);
 }

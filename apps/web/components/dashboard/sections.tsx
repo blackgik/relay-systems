@@ -413,7 +413,7 @@ export function MyTrips({ trips }: { trips: BoardItem[] }) {
       }
     >
       {trips.length === 0 ? (
-        <EmptyState art="route" title="No upcoming trips" body="Post a trip you're already taking and start earning per kilo." cta={{ href: '/trips/new', label: 'Post a trip' }} />
+        <EmptyState art="route" title="No upcoming trips" body="Post a trip you're already taking and start earning per kilo." cta={{ href: '/trips?new=1', label: 'Post a trip' }} />
       ) : (
         <ul className="divide-y divide-border">
           {trips.map((t) => (
@@ -455,7 +455,7 @@ export function MyShipments({ data }: { data: DashboardSummary }) {
       title="My shipments"
       sub="Packages you've sent"
       action={
-        <Link href="/shipments" className="inline-flex items-center gap-1 text-body-s font-semi-bold text-text-link hover:underline dark:text-harbor-200">
+        <Link href="/deliveries/sending" className="inline-flex items-center gap-1 text-body-s font-semi-bold text-text-link hover:underline dark:text-harbor-200">
           Track all <ArrowUpRight size={14} />
         </Link>
       }

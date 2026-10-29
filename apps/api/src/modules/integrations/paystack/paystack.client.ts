@@ -83,6 +83,57 @@ export class PaystackClient {
     });
   }
 
+  // ── Payments ────────────────────────────────────────────────────────
+  // initializeTransaction opens a Paystack checkout (card or bank transfer
+  // channels). Money only moves when the customer completes it; settlement
+  // is confirmed by verifyTransaction or the charge.success webhook.
+  initializeTransaction(input: {
+    email: string;
+    amountMinors: number;
+    reference: string;
+    callbackUrl?: string;
+    channels: ('card' | 'bank_transfer')[];
+  }) {
+    return this.call<{ authorization_url: string; access_code: string; reference: string }>(
+      'POST',
+      '/transaction/initialize',
+      {
+        email: input.email,
+        amount: input.amountMinors, // Paystack charges in kobo/cents already
+        reference: input.reference,
+        ...(input.callbackUrl ? { callback_url: input.callbackUrl } : {}),
+        channels: input.channels.map((c) => (c === 'bank_transfer' ? 'bank_transfer' : 'card')),
+      }
+    );
+  }
+
+  verifyTransaction(reference: string) {
+    return this.call<{ status: string; amount: number; reference: string; channel?: string }>(
+      'GET',
+      `/transaction/verify/${encodeURIComponent(reference)}`
+    );
+  }
+
+  createTransferRecipient(input: { name: string; accountNumber: string; bankCode: string }) {
+    return this.call<{ recipient_code: string }>('POST', '/transferrecipient', {
+      type: 'nuban',
+      name: input.name,
+      account_number: input.accountNumber,
+      bank_code: input.bankCode,
+      currency: 'NGN',
+    });
+  }
+
+  initiateTransfer(input: { amountMinors: number; recipientCode: string; reference: string; reason: string }) {
+    return this.call<{ status: string; reference: string; transfer_code: string }>('POST', '/transfer', {
+      source: 'balance',
+      amount: input.amountMinors,
+      recipient: input.recipientCode,
+      reference: input.reference,
+      reason: input.reason,
+    });
+  }
+
   fetchCustomer(customerCode: string) {
     return this.call<{
       identified: boolean;

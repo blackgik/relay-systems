@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, Shipment, ShipmentStatus } from '@prisma/client';
 import { ACCEPT_DEADLINE_HOURS, TRANSFER_BUFFER_HOURS } from '@relay/shared';
@@ -17,7 +18,10 @@ import {
 import { meetsTier } from '../kyc/kyc-tiers';
 import { TripsService } from '../trips/trips.service';
 import { RoutingService, TripCandidate } from '../routing/routing.service';
+import { AttestationInput, buildAttestation, legalName } from '../attestations/attestation.statement';
+import { Outcome, cleanComment, legOutcome } from '../trust/trust.rules';
 import { CreateShipmentDto } from './shipments.dto';
+import { InvoiceService } from '../ledger/invoice.service';
 
 const HOUR_MS = 3600_000;
 const TRANSFER_BUFFER_MS = TRANSFER_BUFFER_HOURS * HOUR_MS;
@@ -54,7 +58,8 @@ export class ShipmentsService {
     private prisma: PrismaService,
     private trips: TripsService,
     private routing: RoutingService,
-    private outbox: OutboxService
+    private outbox: OutboxService,
+    @Optional() private invoices?: InvoiceService
   ) {}
 
   async create(senderId: string, dto: CreateShipmentDto) {
@@ -120,13 +125,25 @@ export class ShipmentsService {
     };
   }
 
-  async selectRoute(shipmentId: string, senderId: string, tripIds: string[]) {
+  async selectRoute(
+    shipmentId: string,
+    senderId: string,
+    tripIds: string[],
+    attestation?: AttestationInput
+  ) {
     const shipment = await this.owned(shipmentId, senderId);
     if (!['DRAFT', 'ROUTED', 'REROUTING'].includes(shipment.status)) {
       throw new BadRequestException(`Cannot select a route while shipment is ${shipment.status}`);
     }
-    const sender = await this.prisma.user.findUnique({ where: { id: senderId } });
+    const sender = await this.prisma.user.findUnique({
+      where: { id: senderId },
+      include: { kycProfile: { select: { status: true, firstName: true, middleName: true, lastName: true } } },
+    });
     if (!sender) throw new NotFoundException('Sender not found');
+    // No courier sees a request until the sender has signed the declaration
+    // of lawful goods. A reroute keeps the original signature.
+    const signed = await this.prisma.attestation.findUnique({ where: { shipmentId }, select: { id: true } });
+    const declaration = signed ? null : buildAttestation(attestation, legalName(sender));
 
     const found = await this.prisma.trip.findMany({
       where: { id: { in: tripIds } },
@@ -149,6 +166,9 @@ export class ShipmentsService {
     }));
 
     return this.prisma.$transaction(async (tx) => {
+      if (declaration) {
+        await tx.attestation.create({ data: { ...declaration, shipmentId, senderId } });
+      }
       // Release any previous attempt's legs before reserving the new chain.
       const old = await tx.leg.findMany({
         where: { shipmentId, status: { in: ['PROPOSED', 'ACCEPTED'] } },
@@ -248,6 +268,7 @@ export class ShipmentsService {
           include: { trip: { include: { carrier: { select: { handle: true, kycTier: true, rating: true } } } } },
         },
         custody: { orderBy: { occurredAt: 'desc' }, take: 1, select: { type: true, occurredAt: true } },
+        attestation: { select: { reference: true, signedAt: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -309,7 +330,7 @@ export class ShipmentsService {
       assertTransition(LEG_TRANSITIONS, 'leg', 'PROPOSED', 'ACCEPTED');
       const accepted = await tx.leg.updateMany({
         where: { id: legId, version: leg.version },
-        data: { status: 'ACCEPTED', version: { increment: 1 } },
+        data: { status: 'ACCEPTED', acceptedAt: new Date(), version: { increment: 1 } },
       });
       if (accepted.count === 0) throw new ConflictException('Leg changed concurrently');
       await this.outbox.write(tx, 'leg.accepted', { legId, shipmentId: leg.shipmentId });
@@ -329,10 +350,19 @@ export class ShipmentsService {
         await this.outbox.write(tx, 'shipment.approved', { shipmentId: leg.shipmentId });
       }
       return { legId, shipmentStatus };
+    }).then(async (result) => {
+      // Every accepted request gets its invoice: issued now, funded when
+      // escrow lands, paid when delivery releases it to the carrier.
+      await this.invoices?.issueForLeg(legId);
+      return result;
     });
   }
 
-  async rejectLeg(legId: string, carrierId: string) {
+  async rejectLeg(legId: string, carrierId: string, reason?: string) {
+    const cleaned = reason?.trim();
+    if (!cleaned || cleaned.length < 3) {
+      throw new BadRequestException('Give the sender a reason (at least 3 characters)');
+    }
     const leg = await this.prisma.leg.findUnique({
       where: { id: legId },
       include: { shipment: true, trip: { select: { carrierId: true } } },
@@ -347,7 +377,7 @@ export class ShipmentsService {
       assertTransition(LEG_TRANSITIONS, 'leg', 'PROPOSED', 'REJECTED');
       const rejected = await tx.leg.updateMany({
         where: { id: legId, version: leg.version },
-        data: { status: 'REJECTED', version: { increment: 1 } },
+        data: { status: 'REJECTED', rejectionReason: cleaned.slice(0, 300), rejectedAt: new Date(), version: { increment: 1 } },
       });
       if (rejected.count === 0) throw new ConflictException('Leg changed concurrently');
       await tx.trip.update({
@@ -363,8 +393,8 @@ export class ShipmentsService {
         });
         shipmentStatus = 'REROUTING';
       }
-      await this.outbox.write(tx, 'leg.rejected', { legId, shipmentId: leg.shipmentId });
-      return { legId, shipmentStatus };
+      await this.outbox.write(tx, 'leg.rejected', { legId, shipmentId: leg.shipmentId, reason: cleaned });
+      return { legId, shipmentStatus, rejectionReason: cleaned };
     });
   }
 
@@ -408,10 +438,67 @@ export class ShipmentsService {
             weightKg: true,
             photos: true,
             sender: { select: { handle: true, rating: true, kycTier: true } },
+            attestation: { select: { reference: true, signedAt: true } },
           },
         },
       },
       orderBy: { acceptDeadline: 'asc' },
+    });
+  }
+
+  /**
+   * Sender rates and comments on the delivery once it has ended (delivered)
+   * or been terminated after acceptance. Every courier on the chain gets the
+   * review on their leg, and their profile rating becomes the average of all
+   * the reviews written about them.
+   */
+  async rateDelivery(shipmentId: string, senderId: string, rating: number, comment?: string) {
+    await this.owned(shipmentId, senderId);
+    const legs = await this.prisma.leg.findMany({
+      where: { shipmentId },
+      select: {
+        id: true,
+        status: true,
+        acceptedAt: true,
+        trip: { select: { carrierId: true } },
+        reviews: { where: { about: 'OF_COURIER' }, select: { id: true } },
+      },
+    });
+    const finished = legs
+      .map((l) => ({ ...l, outcome: legOutcome(l) }))
+      .filter((l): l is typeof l & { outcome: Outcome } => l.outcome !== null);
+    if (finished.length === 0) {
+      throw new BadRequestException('You can rate a delivery once the trip has ended or been terminated');
+    }
+    const open = finished.filter((l) => l.reviews.length === 0);
+    if (open.length === 0) throw new ConflictException('You already rated this delivery');
+
+    const note = cleanComment(comment);
+    return this.prisma.$transaction(async (tx) => {
+      for (const l of open) {
+        await tx.review.create({
+          data: {
+            legId: l.id,
+            shipmentId,
+            authorId: senderId,
+            subjectId: l.trip.carrierId,
+            about: 'OF_COURIER',
+            rating,
+            comment: note,
+            outcome: l.outcome,
+          },
+        });
+        await tx.leg.update({ where: { id: l.id }, data: { senderRating: rating, ratedAt: new Date() } });
+      }
+      for (const carrierId of new Set(open.map((l) => l.trip.carrierId))) {
+        const agg = await tx.review.aggregate({ where: { subjectId: carrierId, about: 'OF_COURIER' }, _avg: { rating: true } });
+        await tx.user.update({
+          where: { id: carrierId },
+          data: { rating: Math.round((agg._avg.rating ?? rating) * 10) / 10 },
+        });
+      }
+      await this.outbox.write(tx, 'shipment.rated', { shipmentId, rating });
+      return { shipmentId, rating, comment: note };
     });
   }
 

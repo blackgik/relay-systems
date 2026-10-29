@@ -28,6 +28,9 @@ function trip(over: Partial<BoardItem>): BoardItem {
     currency: 'NGN',
     categories: ['fabric'],
     international: false,
+    excludedItems: [],
+    excludedFeePerKg: null,
+    journeyStage: 'NOT_STARTED',
     requestBy: '2098-12-30T08:00:00.000Z',
     bookable: true,
     ...over,
@@ -63,6 +66,8 @@ describe('filterCarriers', () => {
   it('searches a courier name with or without @, case-insensitively', () => {
     expect(filterCarriers(list, { query: '@North-Falcon' }).map((t) => t.tripId)).toEqual(['t2']);
     expect(filterCarriers(list, { query: 'amber' }).map((t) => t.tripId)).toEqual(['t1']);
+    // The same box matches a city on the trip.
+    expect(filterCarriers(list, { query: list[0].destCity.slice(0, 3) }).map((t) => t.tripId)).toContain('t1');
   });
 
   it('filters by destination and origin', () => {

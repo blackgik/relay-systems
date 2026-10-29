@@ -8,6 +8,9 @@ import { ArrowLeft, BadgeCheck, EyeOff, Package, PencilLine, Truck } from 'lucid
 import { api, ApiError } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
 import type { PublicProfile } from '@/lib/dashboard-types';
+import type { Review } from '@/lib/types';
+import { ReviewList } from '@/components/trust/reviews';
+import { FiveStars } from '@/components/carrier/trip-card';
 import { MonthlyColumns, Ring } from '@/components/dashboard/charts';
 import { CourierCard } from '@/components/dashboard/courier-card';
 import {
@@ -31,6 +34,7 @@ export default function PersonPage() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [facet, setFacet] = useState<Facet>('courier');
   const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<{ rating: number | null; count: number; reviews: Review[] } | null>(null);
 
   useEffect(() => {
     if (!token || !handle) return;
@@ -44,8 +48,20 @@ export default function PersonPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load this profile'));
   }, [token, handle]);
 
+  // What couriers said about them as a sender, or senders about them as a courier.
+  useEffect(() => {
+    if (!token || !handle) return;
+    setReviews(null);
+    api<{ rating: number | null; count: number; reviews: Review[] }>(
+      `/people/${encodeURIComponent(handle)}/reviews?about=${facet}`,
+      { token }
+    )
+      .then(setReviews)
+      .catch(() => setReviews({ rating: null, count: 0, reviews: [] }));
+  }, [token, handle, facet]);
+
   if (!loading && !user) return null;
-  if (error) return <EmptyState art="error" title="Profile not found" body={error} cta={{ href: '/dashboard/couriers', label: 'Browse couriers' }} />;
+  if (error) return <EmptyState art="error" title="Profile not found" body={error} cta={{ href: '/search', label: 'Find a courier' }} />;
   if (!profile) return <div className="h-96 animate-pulse rounded-[22px] bg-muted" aria-label="Loading profile" />;
 
   const c = profile.courier;
@@ -71,8 +87,8 @@ export default function PersonPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/dashboard/couriers" className="inline-flex items-center gap-1.5 text-body-s font-medium text-text-secondary hover:text-text-primary">
-          <ArrowLeft size={15} /> Courier board
+        <Link href="/search" className="inline-flex items-center gap-1.5 text-body-s font-medium text-text-secondary hover:text-text-primary">
+          <ArrowLeft size={15} /> Find a courier
         </Link>
         <Segmented<Facet>
           label="Profile view"
@@ -241,6 +257,18 @@ export default function PersonPage() {
           </Card>
         </div>
       )}
+
+      <Card
+        title={facet === 'courier' ? 'What senders said' : 'What couriers said'}
+        sub={facet === 'courier' ? 'Ratings and comments left after each delivery or terminated trip' : 'Left by couriers who carried for them'}
+        action={reviews && <FiveStars rating={reviews.rating} count={reviews.count} />}
+      >
+        {reviews ? (
+          <ReviewList reviews={reviews.reviews} limit={6} empty={facet === 'courier' ? 'No senders have reviewed this courier yet.' : 'No couriers have reviewed this sender yet.'} />
+        ) : (
+          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+        )}
+      </Card>
 
       {facet === 'sender' && s.sent > 0 && (
         <Card title="Sender record" sub="Couriers can check who they're carrying for — without seeing who they are">

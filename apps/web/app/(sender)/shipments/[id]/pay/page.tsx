@@ -131,7 +131,7 @@ export default function Pay() {
             </Typography>
           </div>
         )}
-        <Link href={`/shipments/${params.id}`} className="text-body-m font-medium text-text-brand">
+        <Link href={`/deliveries/sending/${params.id}`} className="text-body-m font-medium text-text-brand">
           Track shipment →
         </Link>
       </div>

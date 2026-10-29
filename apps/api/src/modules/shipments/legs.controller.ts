@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ShipmentsService } from './shipments.service';
+import { RejectLegDto } from './shipments.dto';
 import { JwtGuard } from '../identity/jwt.guard';
 import { CurrentUser } from '../identity/current-user.decorator';
 
@@ -24,7 +25,7 @@ export class LegsController {
   }
 
   @Post(':id/reject')
-  reject(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.shipments.rejectLeg(id, user.id);
+  reject(@CurrentUser() user: { id: string }, @Param('id') id: string, @Body() dto: RejectLegDto) {
+    return this.shipments.rejectLeg(id, user.id, dto.reason);
   }
 }

@@ -38,6 +38,9 @@ const trip: BoardItem = {
   currency: 'NGN',
   categories: ['fabric', 'documents'],
   international: false,
+  excludedItems: [],
+  excludedFeePerKg: null,
+  journeyStage: 'NOT_STARTED',
   requestBy: '2099-01-03T08:00:00.000Z',
   bookable: true,
 };
@@ -49,7 +52,43 @@ function renderModal(props: Partial<React.ComponentProps<typeof RequestModal>> =
   return render(<RequestModal trip={trip} token="tok" senderTier="T2" onClose={jest.fn()} {...props} />);
 }
 
-beforeEach(() => mockApi.mockReset());
+const STATEMENT = {
+  version: '2026-10.1',
+  hash: 'abc',
+  senderClauses: ['The goods are lawfully mine to send.'],
+  courierClauses: ['Stealing this package is a crime.'],
+  signAs: 'Ada Okafor',
+};
+
+/** Routes each API path to a reply; the statement is always available. */
+function routeApi(routes: Record<string, () => Promise<unknown>>) {
+  mockApi.mockImplementation(((path: string) => {
+    if (path === '/attestations/statement') return Promise.resolve(STATEMENT);
+    const hit = Object.keys(routes).find((k) => path === k);
+    return hit ? routes[hit]() : Promise.reject(new Error(`unexpected ${path}`));
+  }) as never);
+}
+
+async function fillAndReview() {
+  fireEvent.change(weightInput(), { target: { value: '2.5' } });
+  fireEvent.change(screen.getByLabelText('Receiver name'), { target: { value: 'Ngozi' } });
+  fireEvent.change(screen.getByLabelText('Receiver phone'), { target: { value: '+2348012345678' } });
+  fireEvent.click(submitButton());
+  await screen.findByText('You are legally responsible for this package');
+}
+
+const signButton = () => screen.getByRole('button', { name: /sign & confirm request/i });
+
+async function sign(name = 'Ada Okafor') {
+  await screen.findByText('The goods are lawfully mine to send.');
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.change(document.querySelector<HTMLInputElement>('#declaration-signature')!, { target: { value: name } });
+}
+
+beforeEach(() => {
+  mockApi.mockReset();
+  routeApi({});
+});
 
 describe('RequestModal', () => {
   it('shows the courier price and a live estimate for the entered weight', () => {
@@ -79,44 +118,60 @@ describe('RequestModal', () => {
     expect(submitButton()).toBeDisabled();
   });
 
-  it('creates the shipment then pushes the request to the chosen trip', async () => {
-    mockApi
-      .mockResolvedValueOnce({ id: 'shp_1' } as never)
-      .mockResolvedValueOnce({ id: 'shp_1', status: 'AWAITING_APPROVAL' } as never);
+  it('asks for the signed declaration before anything is created', async () => {
+    renderModal();
+    await fillAndReview();
+    expect(mockApi).not.toHaveBeenCalledWith('/shipments', expect.anything());
+    await sign('Chika Eze');
+    expect(screen.getByText('Type your name as verified on Relay: Ada Okafor')).toBeInTheDocument();
+    expect(signButton()).toBeDisabled();
+    fireEvent.change(document.querySelector<HTMLInputElement>('#declaration-signature')!, { target: { value: 'okafor ada' } });
+    expect(signButton()).toBeEnabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(signButton()).toBeDisabled();
+  });
+
+  it('creates the shipment then pushes the signed request to the chosen trip', async () => {
+    routeApi({
+      '/shipments': () => Promise.resolve({ id: 'shp_1' }),
+      '/shipments/shp_1/select-route': () => Promise.resolve({ id: 'shp_1', status: 'AWAITING_APPROVAL' }),
+    });
     const onSent = jest.fn();
     renderModal({ onSent });
 
-    fireEvent.change(weightInput(), { target: { value: '2.5' } });
-    fireEvent.change(screen.getByLabelText('Receiver name'), { target: { value: 'Ngozi' } });
-    fireEvent.change(screen.getByLabelText('Receiver phone'), { target: { value: '+2348012345678' } });
-    fireEvent.click(submitButton());
+    await fillAndReview();
+    await sign();
+    fireEvent.click(signButton());
 
     await waitFor(() => expect(onSent).toHaveBeenCalledWith('shp_1'));
-    expect(mockApi).toHaveBeenNthCalledWith(
-      1,
+    expect(mockApi).toHaveBeenCalledWith(
       '/shipments',
       expect.objectContaining({
         method: 'POST',
         body: expect.objectContaining({ originCity: 'Awka', destCity: 'Abuja', weightKg: 2.5, currency: 'NGN', category: 'fabric' }),
       })
     );
-    expect(mockApi).toHaveBeenNthCalledWith(
-      2,
+    expect(mockApi).toHaveBeenCalledWith(
       '/shipments/shp_1/select-route',
-      expect.objectContaining({ method: 'POST', body: { tripIds: ['trip_1'] } })
+      expect.objectContaining({
+        method: 'POST',
+        body: { tripIds: ['trip_1'], attestation: { accepted: true, signedName: 'Ada Okafor', statementVersion: '2026-10.1' } },
+      })
     );
     expect(await screen.findByText('Your request is with @willow-raven-90')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /view signed declaration/i })).toHaveAttribute('href', '/declarations/shp_1');
   });
 
   it('shows the API reason when a request is refused', async () => {
     const { ApiError } = jest.requireActual('@/lib/api');
-    mockApi
-      .mockResolvedValueOnce({ id: 'shp_2' } as never)
-      .mockRejectedValueOnce(new ApiError(400, 'Trip trip_1 is past its request window', {}));
+    routeApi({
+      '/shipments': () => Promise.resolve({ id: 'shp_2' }),
+      '/shipments/shp_2/select-route': () => Promise.reject(new ApiError(400, 'Trip trip_1 is past its request window', {})),
+    });
     renderModal();
-    fireEvent.change(screen.getByLabelText('Receiver name'), { target: { value: 'Ngozi' } });
-    fireEvent.change(screen.getByLabelText('Receiver phone'), { target: { value: '+2348012345678' } });
-    fireEvent.click(submitButton());
+    await fillAndReview();
+    await sign();
+    fireEvent.click(signButton());
     expect(await screen.findByText('Trip trip_1 is past its request window')).toBeInTheDocument();
   });
 });

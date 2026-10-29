@@ -1,15 +1,19 @@
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Length,
   Matches,
+  Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { MAX_PHOTO_LENGTH, PHOTO_MESSAGE, PHOTO_PATTERN } from '../../common/validators/photo';
 
@@ -57,10 +61,47 @@ export class CreateShipmentDto {
   sourceUrl?: string;
 }
 
+export class AttestationDto {
+  @IsBoolean()
+  accepted!: boolean;
+
+  @IsString()
+  @Length(3, 120)
+  signedName!: string;
+
+  @IsString()
+  statementVersion!: string;
+}
+
 export class SelectRouteDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(3)
   @IsString({ each: true })
   tripIds!: string[];
+
+  /** Signed declaration of lawful goods; required on a shipment's first request. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AttestationDto)
+  attestation?: AttestationDto;
+}
+
+/** Declining a carry request always carries a reason for the sender. */
+export class RejectLegDto {
+  @IsString()
+  @Length(3, 300)
+  reason!: string;
+}
+
+export class RateDeliveryDto {
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  comment?: string;
 }

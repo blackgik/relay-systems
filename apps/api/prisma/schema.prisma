@@ -171,6 +171,13 @@ model Trip {
   international  Boolean  @default(false)
   travelVerified Boolean  @default(false)
   status         String   @default("OPEN")
+  // Carrier-reported journey progress, separate from booking status:
+  // NOT_STARTED, STARTED, ALMOST_THERE, ARRIVED, AWAITING_PICKUP, DELIVERED.
+  journeyStage   String   @default("NOT_STARTED")
+  // Items the carrier will not carry, and the added per-kg fee that can
+  // convince them to carry one anyway (minor units, null = never).
+  excludedItems  String[] @default([])
+  excludedFeePerKg Int?
   legs           Leg[]
 
   @@index([originCity, departAt])
@@ -198,7 +205,44 @@ model Shipment {
   version         Int            @default(0)
   legs            Leg[]
   custody         CustodyEvent[]
+  attestation     Attestation?
   createdAt       DateTime       @default(now())
+}
+
+// A rating and comment one side leaves about the other once a leg has ended
+// (delivered) or been terminated (no-show, lost, disputed, cancelled after
+// acceptance). OF_COURIER is written by the sender, OF_SENDER by the courier.
+model Review {
+  id         String   @id @default(cuid())
+  legId      String
+  leg        Leg      @relation(fields: [legId], references: [id])
+  shipmentId String
+  authorId   String
+  subjectId  String
+  about      String // OF_COURIER, OF_SENDER
+  rating     Int
+  comment    String?
+  // How the leg finished when the review was written: DELIVERED or TERMINATED.
+  outcome    String
+  createdAt  DateTime @default(now())
+
+  @@unique([legId, about])
+  @@index([subjectId, about, createdAt])
+}
+
+// The sender's signed declaration that the goods are lawful, made before a
+// request reaches any courier. The statement text is versioned and hashed so
+// the downloadable A4 can prove exactly what was agreed to.
+model Attestation {
+  id               String   @id @default(cuid())
+  reference        String   @unique
+  shipmentId       String   @unique
+  shipment         Shipment @relation(fields: [shipmentId], references: [id])
+  senderId         String
+  signedName       String
+  statementVersion String
+  statementHash    String
+  signedAt         DateTime @default(now())
 }
 
 model Leg {
@@ -213,6 +257,17 @@ model Leg {
   acceptDeadline DateTime
   status         LegStatus @default(PROPOSED)
   version        Int       @default(0)
+  // Sender's 1-5 rating of this delivery, set once the package arrives.
+  senderRating   Int?
+  ratedAt        DateTime?
+  // When the courier accepted. Unlocks each side's real identity to the
+  // other, and tells "terminated after acceptance" apart from "never accepted".
+  acceptedAt     DateTime?
+  // Why the courier declined, in their own words. Shown to the sender so
+  // they know what to change before the shipment is rerouted.
+  rejectionReason String?
+  rejectedAt      DateTime?
+  reviews        Review[]
 
   @@unique([shipmentId, sequence])
 }
@@ -310,6 +365,51 @@ model InsurancePolicy {
   premium    Int
   currency   String
   status     String @default("ACTIVE")
+}
+
+// One invoice per accepted carry request (leg). Tracks the money's path:
+// ISSUED when the courier accepts, FUNDED when the sender's money lands in
+// escrow, PAID when delivery releases it into the courier's wallet.
+model Invoice {
+  id             String    @id @default(cuid())
+  number         String    @unique
+  legId          String    @unique
+  shipmentId     String
+  senderId       String
+  carrierId      String
+  currency       String
+  amount         Int // leg fee, minor units
+  amountPaid     Int       @default(0) // released into the carrier wallet so far
+  status         String    @default("ISSUED") // ISSUED, FUNDED, PARTIALLY_PAID, PAID, REFUNDED
+  escrowFundedAt DateTime?
+  paidToWalletAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([senderId])
+  @@index([carrierId])
+}
+
+// A wallet funding or withdrawal order with an external provider (Paystack
+// or the mock PSP). The ledger mirrors settled orders; this tracks the
+// provider-side state (checkout link, transfer) until settlement.
+model PaymentOrder {
+  id           String    @id @default(cuid())
+  userId       String
+  kind         String // TOPUP, WITHDRAWAL
+  reference    String    @unique
+  amountMinors Int
+  currency     String
+  method       String // card, transfer
+  provider     String // paystack, mock
+  status       String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  accountName  String?
+  bankCode     String?
+  accountLast4 String?
+  createdAt    DateTime  @default(now())
+  settledAt    DateTime?
+
+  @@index([userId, kind])
 }
 
 model OutboxEvent {

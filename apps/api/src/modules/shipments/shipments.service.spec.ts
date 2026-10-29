@@ -1,5 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { OutboxService } from '../../common/outbox/outbox.service';
+import { STATEMENT_VERSION } from '../attestations/attestation.statement';
 import { ShipmentsService } from './shipments.service';
 
 const HOUR = 3600_000;
@@ -7,8 +8,10 @@ const DAY = 24 * HOUR;
 
 function buildMocks() {
   const tx: any = {
-    leg: { findMany: jest.fn(), create: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
+    leg: { findMany: jest.fn(), create: jest.fn(), updateMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
     trip: { update: jest.fn() },
+    user: { update: jest.fn() },
+    attestation: { create: jest.fn() },
     shipment: { update: jest.fn(), updateMany: jest.fn() },
     outboxEvent: { create: jest.fn() },
   };
@@ -16,7 +19,8 @@ function buildMocks() {
     user: { findUnique: jest.fn() },
     shipment: { findUnique: jest.fn(), create: jest.fn() },
     trip: { findMany: jest.fn() },
-    leg: { findUnique: jest.fn() },
+    leg: { findUnique: jest.fn(), findMany: jest.fn() },
+    attestation: { findUnique: jest.fn().mockResolvedValue(null) },
     $transaction: jest.fn((fn: any) => fn(tx)),
   };
   const trips: any = { findCandidates: jest.fn() };
@@ -39,6 +43,8 @@ function shipment(overrides: any = {}) {
     ...overrides,
   };
 }
+
+const SIGNED = { accepted: true, signedName: 'ada okafor', statementVersion: STATEMENT_VERSION };
 
 function trip(id: string, overrides: any = {}) {
   const now = Date.now();
@@ -74,13 +80,13 @@ describe('ShipmentsService', () => {
       carrier: { kycTier: 'T2' },
     });
     prisma.shipment.findUnique.mockResolvedValue(shipment());
-    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2', fullName: 'Ada Okafor', kycProfile: null });
     prisma.trip.findMany.mockResolvedValue([t1, t2]);
     tx.leg.findMany.mockResolvedValue([]);
     tx.leg.create.mockImplementation(({ data }: any) => Promise.resolve({ id: `leg_${data.tripId}`, ...data }));
     tx.shipment.update.mockImplementation(({ data }: any) => Promise.resolve({ ...shipment(), ...data }));
 
-    const result = await service.selectRoute('sh1', 'u1', ['t1', 't2']);
+    const result = await service.selectRoute('sh1', 'u1', ['t1', 't2'], SIGNED);
 
     expect(tx.leg.create).toHaveBeenCalledTimes(2);
     expect(tx.leg.create).toHaveBeenNthCalledWith(
@@ -114,13 +120,89 @@ describe('ShipmentsService', () => {
     const t1 = trip('t1');
     const t2 = trip('t2', { originCity: 'Lagos', destCity: 'Houston' });
     prisma.shipment.findUnique.mockResolvedValue(shipment());
-    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2', fullName: 'Ada Okafor', kycProfile: null });
     prisma.trip.findMany.mockResolvedValue([t1, t2]);
 
-    await expect(service.selectRoute('sh1', 'u1', ['t1', 't2'])).rejects.toThrow(
+    await expect(service.selectRoute('sh1', 'u1', ['t1', 't2'], SIGNED)).rejects.toThrow(
       BadRequestException
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('selectRoute stores the signed declaration before any courier is asked', async () => {
+    const { prisma, tx, service } = buildMocks();
+    prisma.shipment.findUnique.mockResolvedValue(shipment({ destCity: 'Abuja' }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2', fullName: 'Ada Okafor', kycProfile: null });
+    prisma.trip.findMany.mockResolvedValue([trip('t1')]);
+    tx.leg.findMany.mockResolvedValue([]);
+    tx.shipment.update.mockImplementation(({ data }: any) => Promise.resolve({ ...shipment(), ...data }));
+
+    await service.selectRoute('sh1', 'u1', ['t1'], SIGNED);
+    expect(tx.attestation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        shipmentId: 'sh1',
+        senderId: 'u1',
+        signedName: 'ada okafor',
+        statementVersion: STATEMENT_VERSION,
+        reference: expect.stringMatching(/^RLY-DEC-[0-9A-F]{8}$/),
+      }),
+    });
+  });
+
+  it('selectRoute refuses an unsigned or mis-signed first request, and keeps the signature on reroute', async () => {
+    const { prisma, tx, service } = buildMocks();
+    prisma.shipment.findUnique.mockResolvedValue(shipment({ destCity: 'Abuja' }));
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T2', fullName: 'Ada Okafor', kycProfile: null });
+    prisma.trip.findMany.mockResolvedValue([trip('t1')]);
+
+    await expect(service.selectRoute('sh1', 'u1', ['t1'])).rejects.toThrow(/declaration/);
+    await expect(
+      service.selectRoute('sh1', 'u1', ['t1'], { ...SIGNED, signedName: 'Someone Else' })
+    ).rejects.toThrow(/full legal name/);
+    await expect(
+      service.selectRoute('sh1', 'u1', ['t1'], { ...SIGNED, statementVersion: 'old' })
+    ).rejects.toThrow(/updated/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+
+    // Already signed (a reroute): no new signature needed, none stored.
+    prisma.attestation.findUnique.mockResolvedValue({ id: 'att1' });
+    tx.leg.findMany.mockResolvedValue([]);
+    tx.shipment.update.mockImplementation(({ data }: any) => Promise.resolve({ ...shipment(), ...data }));
+    await service.selectRoute('sh1', 'u1', ['t1']);
+    expect(tx.attestation.create).not.toHaveBeenCalled();
+  });
+
+  it('rateDelivery reviews every finished leg once, with the comment, and refreshes the courier average', async () => {
+    const { prisma, tx, service } = buildMocks();
+    tx.review = { create: jest.fn(), aggregate: jest.fn().mockResolvedValue({ _avg: { rating: 4.25 } }) };
+    tx.leg.update = jest.fn();
+    prisma.shipment.findUnique.mockResolvedValue(shipment({ status: 'DELIVERED' }));
+    prisma.leg.findMany.mockResolvedValue([
+      { id: 'l1', status: 'SETTLED', acceptedAt: new Date(), trip: { carrierId: 'c1' }, reviews: [] },
+      { id: 'l2', status: 'NO_SHOW', acceptedAt: new Date(), trip: { carrierId: 'c2' }, reviews: [] },
+      { id: 'l3', status: 'PROPOSED', acceptedAt: null, trip: { carrierId: 'c3' }, reviews: [] },
+    ]);
+
+    await expect(service.rateDelivery('sh1', 'u1', 5, '  Careful   and on time ')).resolves.toEqual({
+      shipmentId: 'sh1',
+      rating: 5,
+      comment: 'Careful and on time',
+    });
+    expect(tx.review.create).toHaveBeenCalledTimes(2);
+    expect(tx.review.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ legId: 'l2', subjectId: 'c2', about: 'OF_COURIER', outcome: 'TERMINATED', comment: 'Careful and on time' }),
+    });
+    expect(tx.user.update).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { rating: 4.3 } });
+
+    prisma.leg.findMany.mockResolvedValue([
+      { id: 'l1', status: 'SETTLED', acceptedAt: new Date(), trip: { carrierId: 'c1' }, reviews: [{ id: 'r1' }] },
+    ]);
+    await expect(service.rateDelivery('sh1', 'u1', 4)).rejects.toThrow(ConflictException);
+
+    prisma.leg.findMany.mockResolvedValue([
+      { id: 'l1', status: 'IN_CUSTODY', acceptedAt: new Date(), trip: { carrierId: 'c1' }, reviews: [] },
+    ]);
+    await expect(service.rateDelivery('sh1', 'u1', 4)).rejects.toThrow(/ended or been terminated/);
   });
 
   it('acceptLeg approves the shipment when the last leg accepts', async () => {
@@ -190,15 +272,23 @@ describe('ShipmentsService', () => {
     });
     tx.leg.updateMany.mockResolvedValue({ count: 1 });
 
-    const result = await service.rejectLeg('leg1', 'u2');
+    await expect(service.rejectLeg('leg1', 'u2')).rejects.toThrow(/reason/);
+    await expect(service.rejectLeg('leg1', 'u2', '  ')).rejects.toThrow(/reason/);
 
+    const result = await service.rejectLeg('leg1', 'u2', '  No space left in my bag  ');
+
+    expect(tx.leg.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'REJECTED', rejectionReason: 'No space left in my bag' }),
+      })
+    );
     expect(tx.trip.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { remainingKg: { increment: 5 } } })
     );
     expect(tx.shipment.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'REROUTING' }) })
     );
-    expect(result).toEqual({ legId: 'leg1', shipmentStatus: 'REROUTING' });
+    expect(result).toEqual({ legId: 'leg1', shipmentStatus: 'REROUTING', rejectionReason: 'No space left in my bag' });
   });
 
   it('routes() maps trips to candidates and returns shaped options', async () => {

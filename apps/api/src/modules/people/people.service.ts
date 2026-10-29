@@ -53,6 +53,9 @@ export function toBoardItem(trip: BoardTrip, viewerId: string | null, now = new 
     currency: trip.currency,
     categories: trip.categories,
     international: trip.international,
+    excludedItems: trip.excludedItems ?? [],
+    excludedFeePerKg: trip.excludedFeePerKg ?? null,
+    journeyStage: trip.journeyStage ?? 'NOT_STARTED',
     requestBy,
     bookable: trip.status === 'OPEN' && trip.remainingKg > 0 && requestBy > now,
   };

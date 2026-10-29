@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ShipmentsService } from './shipments.service';
-import { CreateShipmentDto, SelectRouteDto } from './shipments.dto';
+import { CreateShipmentDto, RateDeliveryDto, SelectRouteDto } from './shipments.dto';
 import { JwtGuard } from '../identity/jwt.guard';
 import { CurrentUser } from '../identity/current-user.decorator';
 
@@ -30,7 +30,12 @@ export class ShipmentsController {
     @Param('id') id: string,
     @Body() dto: SelectRouteDto
   ) {
-    return this.shipments.selectRoute(id, user.id, dto.tripIds);
+    return this.shipments.selectRoute(id, user.id, dto.tripIds, dto.attestation);
+  }
+
+  @Post(':id/rate')
+  rate(@CurrentUser() user: { id: string }, @Param('id') id: string, @Body() dto: RateDeliveryDto) {
+    return this.shipments.rateDelivery(id, user.id, dto.rating, dto.comment);
   }
 
   @Get(':id/timeline')

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { seedBackfill } from './seed-backfill';
 import { seedHistory } from './seed-history';
 import * as bcrypt from 'bcryptjs';
 
@@ -204,6 +205,7 @@ async function main() {
   });
 
   await seedHistory(prisma, { passwordHash, ada, chika, bola, dele });
+  await seedBackfill(prisma);
 
   console.log(`Seeded corridor with first trip ${t1.id}. Demo password for all users: password123`);
 }

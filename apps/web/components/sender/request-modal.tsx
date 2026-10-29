@@ -2,19 +2,22 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, FileText } from 'lucide-react';
 import { Button, ImageUploader, Input, Modal, ModalHeader, Select, Typography, toast } from '@/ui/elements';
 import { ApiError, api } from '@/lib/api';
 import type { BoardItem } from '@/lib/dashboard-types';
 import type { Shipment } from '@/lib/types';
 import { formatMinors, toMinors } from '@/lib/money';
 import { JOURNEY_LABEL, estimateFee, journeyBucket, journeyHours } from '@/lib/carrier-filters';
+import { DeclarationPanel, type SignedDeclaration, useDeclarationStatement } from '@/components/declaration/declaration-panel';
+import { declarationPath } from '@/lib/declaration';
 import { HandleAvatar, ModeIcon, PhasePill, RouteStrip, Stars, VerifiedBadge, formatDay, formatTime } from '@/components/dashboard/widgets';
 
 /**
  * Direct request to one chosen courier: shows everything about the carrier
  * and their bag, takes the package weight, prices it live at price-per-kg,
- * then creates the shipment and pushes the request to that courier's trip.
+ * has the sender sign the declaration of lawful goods, then creates the
+ * shipment and pushes the request to that courier's trip.
  */
 export function RequestModal({
   trip,
@@ -35,6 +38,8 @@ export function RequestModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
+  const [step, setStep] = useState<'details' | 'declare'>('details');
+  const { statement, error: statementError } = useDeclarationStatement(token, !!trip);
 
   useEffect(() => {
     if (trip) {
@@ -42,6 +47,7 @@ export function RequestModal({
       setPhoto(undefined);
       setError(null);
       setSentId(null);
+      setStep('details');
     }
   }, [trip]);
 
@@ -70,7 +76,8 @@ export function RequestModal({
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = async (e: React.FormEvent) => {
+  // Details first; nothing is created until the declaration is signed.
+  const review = (e: React.FormEvent) => {
     e.preventDefault();
     if (tierBlock) { setError(tierBlock); return; }
     if (weightProblem) { setError(weightProblem); return; }
@@ -78,6 +85,11 @@ export function RequestModal({
       setError('Add the receiver name and phone so the courier can hand over.');
       return;
     }
+    setError(null);
+    setStep('declare');
+  };
+
+  const send = async (attestation: SignedDeclaration) => {
     setBusy(true);
     setError(null);
     try {
@@ -99,7 +111,7 @@ export function RequestModal({
       const updated = await api<Shipment>(`/shipments/${draft.id}/select-route`, {
         method: 'POST',
         token,
-        body: { tripIds: [trip.tripId] },
+        body: { tripIds: [trip.tripId], attestation },
       });
       setSentId(updated.id);
       onSent?.(updated.id);
@@ -114,7 +126,11 @@ export function RequestModal({
   return (
     <Modal isOpen closeModal={onClose}>
       <div className="w-full max-w-[560px] text-left md:w-[560px]">
-        <ModalHeader title={sentId ? 'Request sent' : `Send with @${handle}`} subtitle={`${trip.originCity} → ${trip.destCity}`} onClose={onClose} />
+        <ModalHeader
+          title={sentId ? 'Request sent' : step === 'declare' ? 'Sign the declaration' : `Send with @${handle}`}
+          subtitle={`${trip.originCity} → ${trip.destCity}`}
+          onClose={onClose}
+        />
         {sentId ? (
           <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
             <CheckCircle2 size={40} className="text-success" />
@@ -124,12 +140,23 @@ export function RequestModal({
               The courier reviews your item and must accept before their 48-hour deadline. You pay into escrow after acceptance.
             </Typography>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-              <Button label="Track this shipment" href={`/shipments/${sentId}`} fit />
+              <Button label="Track this shipment" href={`/deliveries/sending/${sentId}`} fit />
+              <Button label="View signed declaration" variant="secondary" href={declarationPath(sentId)} fit iconLeading={<FileText size={16} />} />
               <Button label="Done" variant="secondary" fit onClick={onClose} />
             </div>
           </div>
+        ) : step === 'declare' ? (
+          <DeclarationPanel
+            statement={statement}
+            loadError={statementError}
+            summary={<>{weight} kg of <span className="capitalize">{form.category}</span> · {trip.originCity} → {trip.destCity} with @{handle} · estimated {formatMinors(fee, trip.currency)}</>}
+            busy={busy}
+            error={error}
+            onBack={() => { setError(null); setStep('details'); }}
+            onConfirm={send}
+          />
         ) : (
-          <form onSubmit={submit} className="flex flex-col gap-4 px-5 py-5 md:px-6">
+          <form onSubmit={review} className="flex flex-col gap-4 px-5 py-5 md:px-6">
             {/* All about this carrier and trip */}
             <div className="rounded-2xl border border-border bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
@@ -151,6 +178,9 @@ export function RequestModal({
                 <div><dt className="text-text-tertiary">Bag space left</dt><dd className="font-semi-bold text-text-primary">{trip.remainingKg} kg of {trip.capacityKg} kg</dd></div>
                 <div><dt className="text-text-tertiary">Already carrying</dt><dd className="font-semi-bold text-text-primary">{trip.packagesOnHand} pkg · {trip.kgOnHand} kg</dd></div>
                 <div><dt className="text-text-tertiary">Accepts</dt><dd className="font-semi-bold capitalize text-text-primary">{trip.categories.join(', ') || '—'}</dd></div>
+                {trip.excludedItems.length > 0 && (
+                  <div><dt className="text-text-tertiary">Will not carry</dt><dd className="font-semi-bold capitalize text-text-primary">{trip.excludedItems.join(', ')}{trip.excludedFeePerKg ? ` — can be convinced for +${formatMinors(trip.excludedFeePerKg, trip.currency).replace(/\.00$/, '')}/kg` : ''}</dd></div>
+                )}
               </dl>
               <div className="mt-4 flex items-end justify-between border-t border-border pt-3">
                 <span className="text-body-s text-text-tertiary">Price per kg of bag space</span>
@@ -202,7 +232,7 @@ export function RequestModal({
 
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
               <Button label="Cancel" variant="secondary" fit onClick={onClose} disabled={busy} />
-              <Button type="submit" fit label={busy ? 'Sending…' : `Push request to @${handle}`} disabled={busy || !!weightProblem || !!tierBlock} />
+              <Button type="submit" fit label={`Push request to @${handle}`} disabled={busy || !!weightProblem || !!tierBlock} />
             </div>
           </form>
         )}

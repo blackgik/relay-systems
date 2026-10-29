@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, PackageCheck, Search } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { CalendarClock, LayoutGrid, List, PackageCheck, Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { BoardItem } from '@/lib/dashboard-types';
 import { formatMinors } from '@/lib/money';
@@ -40,7 +41,7 @@ function CarrierCard({ trip, onRequest }: { trip: BoardItem; onRequest: (t: Boar
   const bookable = isAccepting(trip) && !trip.isMine;
   const blocked = notBookableReason(trip);
   return (
-    <article className="flex flex-col rounded-[22px] border border-border/70 bg-card p-5 shadow-light">
+    <article className="flex h-full flex-1 flex-col rounded-[22px] border border-border/70 bg-card p-5 shadow-light">
       <div className="flex items-start justify-between gap-3">
         <Link href={`/dashboard/people/${handle}`} className="flex min-w-0 items-center gap-3" aria-label={`View @${handle}'s profile`}>
           <HandleAvatar handle={handle} size={44} />
@@ -111,20 +112,62 @@ function CarrierCard({ trip, onRequest }: { trip: BoardItem; onRequest: (t: Boar
   );
 }
 
+export type BrowserPhase = 'accepting' | 'in_transit';
+
+/** Compact row for the list layout. */
+function CarrierRow({ trip, onRequest }: { trip: BoardItem; onRequest: (t: BoardItem) => void }) {
+  const handle = trip.handle ?? 'courier';
+  const bookable = isAccepting(trip) && !trip.isMine;
+  const blocked = notBookableReason(trip);
+  return (
+    <article className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-card px-4 py-3 shadow-light">
+      <Link href={`/dashboard/people/${handle}`} className="flex min-w-0 items-center gap-2.5">
+        <HandleAvatar handle={handle} size={34} />
+        <span className="min-w-0">
+          <span className="block truncate text-body-m font-semi-bold text-text-primary">@{handle}</span>
+          <span className="flex items-center gap-1.5"><Stars rating={trip.rating} /><VerifiedBadge tier={trip.tier} /></span>
+        </span>
+      </Link>
+      <span className="flex min-w-0 flex-1 basis-48 items-center gap-2">
+        <RouteStrip from={trip.originCity} to={trip.destCity} size="sm" />
+        <ModeIcon mode={trip.mode} size={13} />
+      </span>
+      <span className="text-body-s text-text-tertiary">{formatDay(trip.departAt)}, {formatTime(trip.departAt)}</span>
+      <span className="text-body-s font-semi-bold text-text-primary">{trip.remainingKg} kg free</span>
+      {trip.isMine ? (
+        <span className="ml-auto text-body-s font-semi-bold text-text-tertiary">Your trip</span>
+      ) : (
+        <button type="button" disabled={!bookable} onClick={() => onRequest(trip)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-2 text-body-s font-semi-bold text-brand-foreground hover:bg-brand-focus disabled:cursor-not-allowed disabled:opacity-50">
+          <PackageCheck size={14} />
+          {blocked ?? `${formatMinors(trip.pricePerKg, trip.currency).replace(/\.00$/, '')}/kg`}
+        </button>
+      )}
+    </article>
+  );
+}
+
 export function CarrierBrowser({
   token,
+  phase = 'accepting',
   initialOrigin = '',
   initialDestination = '',
+  initialQuery = '',
   onRequest,
   refreshKey = 0,
 }: {
   token: string | null;
+  /** Couriers taking requests now, or couriers already on the road (shown for reference). */
+  phase?: BrowserPhase;
   initialOrigin?: string;
   initialDestination?: string;
+  /** Prefill from a `?q=` link, e.g. the sidebar search. */
+  initialQuery?: string;
   onRequest: (trip: BoardItem) => void;
   /** Bump after a request is sent so space-left figures reload. */
   refreshKey?: number;
 }) {
+  const moving = phase === 'in_transit';
   const [all, setAll] = useState<BoardItem[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
@@ -132,49 +175,71 @@ export function CarrierBrowser({
   const [destination, setDestination] = useState('all');
   const [journey, setJourney] = useState<JourneyBucket | 'all'>('all');
   const [sort, setSort] = useState<CarrierSort>('departSoon');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => { if (initialOrigin) setOrigin(initialOrigin); }, [initialOrigin]);
   useEffect(() => { if (initialDestination) setDestination(initialDestination); }, [initialDestination]);
+  useEffect(() => { if (initialQuery) setQuery(initialQuery); }, [initialQuery]);
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('relay-board-view');
+      if (v === 'grid' || v === 'list') setView(v);
+    } catch { /* private mode */ }
+  }, []);
+  const saveView = (v: 'grid' | 'list') => {
+    setView(v);
+    try { localStorage.setItem('relay-board-view', v); } catch { /* private mode */ }
+  };
 
   useEffect(() => {
     if (!token) return;
-    api<BoardItem[]>('/couriers/board?take=60&phase=accepting', { token })
+    setAll(null);
+    api<BoardItem[]>(`/couriers/board?take=60&phase=${phase}`, { token })
       .then(setAll)
       .catch(() => { setFailed(true); setAll([]); });
-  }, [token, refreshKey]);
+  }, [token, refreshKey, phase]);
 
-  const accepting = useMemo(() => (all ?? []).filter(isAccepting), [all]);
-  const origins = useMemo(() => distinctCities(accepting, 'originCity'), [accepting]);
-  const destinations = useMemo(() => distinctCities(accepting, 'destCity'), [accepting]);
+  const pool = useMemo(() => (moving ? all ?? [] : (all ?? []).filter(isAccepting)), [all, moving]);
+  const origins = useMemo(() => distinctCities(pool, 'originCity'), [pool]);
+  const destinations = useMemo(() => distinctCities(pool, 'destCity'), [pool]);
   const shown = useMemo(
-    () => filterCarriers(all ?? [], { query, origin, destination, journey, sort }),
-    [all, query, origin, destination, journey, sort],
+    () => filterCarriers(all ?? [], { query, origin, destination, journey, sort, acceptingOnly: !moving }),
+    [all, query, origin, destination, journey, sort, moving],
   );
-  const freeKg = accepting.reduce((s, t) => s + t.remainingKg, 0);
+  const freeKg = pool.reduce((s, t) => s + t.remainingKg, 0);
 
   return (
-    <section aria-label="Carriers currently accepting packages" className="flex flex-col gap-4">
+    <section aria-label={moving ? 'Couriers on the road now' : 'Carriers currently accepting packages'} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-title-l font-semi-bold text-text-primary">Carriers currently accepting</h2>
-          <p className="mt-0.5 text-body-s text-text-tertiary">
-            {all === null ? 'Loading open trips…' : `${accepting.length} open trip${accepting.length === 1 ? '' : 's'} · ${freeKg} kg of bag space available. Prices are per kg.`}
-          </p>
+        <p className="text-body-s text-text-tertiary">
+          {all === null
+            ? 'Loading trips…'
+            : moving
+              ? `${pool.length} courier${pool.length === 1 ? '' : 's'} travelling now. Book their next trip from their profile.`
+              : `${pool.length} open trip${pool.length === 1 ? '' : 's'} · ${freeKg} kg of bag space available. Prices are per kg.`}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {!moving && (
+            <Segmented<CarrierSort> label="Sort carriers" value={sort} onChange={setSort} options={[
+              { value: 'departSoon', label: 'Departs soon' },
+              { value: 'priceLow', label: 'Lowest price' },
+              { value: 'rating', label: 'Top rated' },
+              { value: 'journeyShort', label: 'Shortest' },
+            ]} />
+          )}
+          <Segmented<'grid' | 'list'> label="Layout" value={view} onChange={saveView} options={[
+            { value: 'grid', label: <><LayoutGrid size={14} /> <span className="sr-only sm:not-sr-only">Grid</span></> },
+            { value: 'list', label: <><List size={14} /> <span className="sr-only sm:not-sr-only">List</span></> },
+          ]} />
         </div>
-        <Segmented<CarrierSort> label="Sort carriers" value={sort} onChange={setSort} options={[
-          { value: 'departSoon', label: 'Departs soon' },
-          { value: 'priceLow', label: 'Lowest price' },
-          { value: 'rating', label: 'Top rated' },
-          { value: 'journeyShort', label: 'Shortest journey' },
-        ]} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-border/70 bg-card p-3 shadow-light">
-        <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-full border border-border bg-surface px-3 py-2">
+        <label className="flex min-w-0 flex-1 basis-56 items-center gap-2 rounded-full border border-border bg-surface px-3 py-2">
           <Search size={14} className="shrink-0 text-icon-muted" />
-          <span className="sr-only">Search a courier by name</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search courier name, e.g. @amber-otter-14"
-            className="w-full border-0 bg-transparent p-0 text-body-s text-text-primary placeholder:text-text-tertiary focus:ring-0" />
+          <span className="sr-only">Search by courier name or city</span>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="@username or city"
+            className="w-full min-w-0 border-0 bg-transparent p-0 text-body-s text-text-primary placeholder:text-text-tertiary focus:ring-0" />
         </label>
         <label className="flex items-center gap-2 text-body-s text-text-secondary">From
           <select aria-label="Filter by origin" value={origin} onChange={(e) => setOrigin(e.target.value)} className={selectClass}>
@@ -186,30 +251,48 @@ export function CarrierBrowser({
             <option value="all">All destinations</option>{destinations.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-2 text-body-s text-text-secondary">Journey length
-          <select aria-label="Filter by journey length" value={journey} onChange={(e) => setJourney(e.target.value as JourneyBucket | 'all')} className={selectClass}>
-            <option value="all">Any length</option>
-            {(Object.keys(JOURNEY_LABEL) as JourneyBucket[]).map((b) => <option key={b} value={b}>{JOURNEY_LABEL[b]}</option>)}
-          </select>
-        </label>
+        {!moving && (
+          <label className="flex items-center gap-2 text-body-s text-text-secondary">Length
+            <select aria-label="Filter by journey length" value={journey} onChange={(e) => setJourney(e.target.value as JourneyBucket | 'all')} className={selectClass}>
+              <option value="all">Any length</option>
+              {(Object.keys(JOURNEY_LABEL) as JourneyBucket[]).map((b) => <option key={b} value={b}>{JOURNEY_LABEL[b]}</option>)}
+            </select>
+          </label>
+        )}
         {(query || origin !== 'all' || destination !== 'all' || journey !== 'all') && (
           <button type="button" onClick={() => { setQuery(''); setOrigin('all'); setDestination('all'); setJourney('all'); }}
             className="rounded-full px-3 py-2 text-body-s font-semi-bold text-text-link hover:underline">Clear filters</button>
         )}
       </div>
-      <p className="text-body-s text-text-tertiary">Journey length is the trip&apos;s scheduled travel time, departure to arrival. Trips don&apos;t publish road kilometres, so shortest journey stands in for shortest distance.</p>
 
       {all === null ? (
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-[22px] bg-muted" />)}</div>
       ) : shown.length === 0 ? (
-        <EmptyState art={failed ? 'error' : 'search'} title={failed ? 'Could not load carriers' : 'No carriers match'}
-          body={failed ? 'Check your connection and refresh to try again.' : 'Try a different courier name, destination or journey length.'} />
+        <EmptyState art={failed ? 'error' : 'search'} title={failed ? 'Could not load couriers' : moving ? 'Nobody on the road here' : 'No carriers match'}
+          body={failed ? 'Check your connection and refresh to try again.' : 'Try a different name, city or journey length.'} />
       ) : (
         <>
-          <p className="text-body-s text-text-tertiary" role="status">{shown.length} carrier trip{shown.length === 1 ? '' : 's'} shown</p>
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {shown.map((t) => <CarrierCard key={t.tripId} trip={t} onRequest={onRequest} />)}
-          </div>
+          <p className="text-body-s text-text-tertiary" role="status">{shown.length} {moving ? 'courier' : 'carrier trip'}{shown.length === 1 ? '' : 's'} shown</p>
+          <motion.div layout className={view === 'grid' ? 'grid gap-4 md:grid-cols-2 2xl:grid-cols-3' : 'flex flex-col gap-2'}>
+            <AnimatePresence initial={false} mode="popLayout">
+              {shown.map((t, i) => (
+                <motion.div
+                  key={t.tripId}
+                  layout
+                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: Math.min(i, 9) * 0.035 } }}
+                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
+                  transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                  className="flex min-w-0 flex-col"
+                >
+                  {view === 'grid' ? <CarrierCard trip={t} onRequest={onRequest} /> : <CarrierRow trip={t} onRequest={onRequest} />}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+          {!moving && (
+            <p className="text-[11px] text-text-tertiary">Journey length is the scheduled travel time, departure to arrival. Trips don&apos;t publish road kilometres, so “shortest” stands in for shortest distance.</p>
+          )}
         </>
       )}
     </section>

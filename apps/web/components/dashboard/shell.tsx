@@ -16,7 +16,6 @@ import {
   Info,
   LayoutDashboard,
   LogOut,
-  Luggage,
   Mail,
   Menu,
   Moon,
@@ -27,15 +26,18 @@ import {
   ShieldCheck,
   Truck,
   UserRound,
-  Users,
   Wallet,
   X,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { Notification } from '@/lib/dashboard-types';
+import { deliveryCounts } from '@/lib/deliveries';
 import { Wordmark } from '@/components/marketing/blocks';
 import { HandleAvatar } from './widgets';
+import { Tooltip } from '@/ui/elements';
 
 // ── Role mode ─────────────────────────────────────────────────────────
 // One account both sends and carries. The switch changes which side the
@@ -51,6 +53,15 @@ const ModeContext = createContext<{ mode: DashboardMode; setMode: (m: DashboardM
 export function useDashboardMode() {
   return useContext(ModeContext);
 }
+
+// The shell already polls notifications; pages read them from here rather
+// than fetching again (the Deliveries tab counts, for one).
+const NotesContext = createContext<{ notes: Notification[]; refresh: () => void }>({ notes: [], refresh: () => undefined });
+
+export function useShellNotes() {
+  return useContext(NotesContext);
+}
+
 
 function readStore(key: string) {
   try {
@@ -72,34 +83,69 @@ function writeStore(key: string, value: string) {
 
 type NavItem = { href: string; label: string; icon: React.ElementType; badge?: number; match?: string };
 
-function NavGroup({ title, items, pathname, onNavigate }: { title: string; items: NavItem[]; pathname: string; onNavigate?: () => void }) {
+/** Collapsed rail: the page name shows in a tooltip beside the icon (portalled, so the scrolling nav can't clip it). */
+function RailTip({ collapsed, label, children }: { collapsed: boolean; label: React.ReactNode; children: React.ReactNode }) {
+  if (!collapsed) return <>{children}</>;
+  return (
+    <Tooltip content={label} placement="right" noWrap wrapperStyle="flex w-full">
+      {children}
+    </Tooltip>
+  );
+}
+
+function NavGroup({
+  title,
+  items,
+  pathname,
+  collapsed,
+  onNavigate,
+}: {
+  title: string;
+  items: NavItem[];
+  pathname: string;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   return (
     <div>
-      <p className="px-3 text-[11px] font-semi-bold uppercase tracking-[0.12em] text-text-tertiary">{title}</p>
-      <ul className="mt-2 space-y-0.5">
+      {collapsed ? (
+        <span aria-hidden className="mx-auto block h-px w-6 bg-border" />
+      ) : (
+        <p className="px-3 text-[11px] font-semi-bold uppercase tracking-[0.12em] text-text-tertiary">{title}</p>
+      )}
+      <ul className="mt-2 space-y-0.5" aria-label={collapsed ? title : undefined}>
         {items.map(({ href, label, icon: Icon, badge, match }) => {
           const active = pathname === href || (!!match && pathname.startsWith(match));
           return (
             <li key={href}>
-              <Link
-                href={href}
-                onClick={onNavigate}
-                aria-current={active ? 'page' : undefined}
-                className={clsx(
-                  'flex items-center gap-3 rounded-xl px-3 py-2 text-body-m transition-colors',
-                  active
-                    ? 'border border-border/70 bg-card font-semi-bold text-text-brand shadow-light dark:text-white'
-                    : 'border border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
-                )}
-              >
-                <Icon size={18} strokeWidth={active ? 2.3 : 1.9} className={active ? 'text-text-brand dark:text-accent-signal' : ''} />
-                <span className="flex-1">{label}</span>
-                {!!badge && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-brand-foreground">
-                    {badge}
-                  </span>
-                )}
-              </Link>
+              <RailTip collapsed={collapsed} label={badge ? `${label} · ${badge} waiting` : label}>
+                <Link
+                  href={href}
+                  onClick={onNavigate}
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={collapsed ? (badge ? `${label}, ${badge} waiting` : label) : undefined}
+                  className={clsx(
+                    'relative flex w-full items-center rounded-xl py-2 text-body-m transition-colors',
+                    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
+                    active
+                      ? 'border border-border/70 bg-card font-semi-bold text-text-brand shadow-light dark:text-white'
+                      : 'border border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                  )}
+                >
+                  <Icon size={18} strokeWidth={active ? 2.3 : 1.9} className={clsx('shrink-0', active && 'text-text-brand dark:text-accent-signal')} />
+                  {!collapsed && <span className="flex-1 truncate">{label}</span>}
+                  {!!badge &&
+                    (collapsed ? (
+                      <span className="absolute right-2 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-brand-foreground ring-2 ring-surface">
+                        {badge}
+                      </span>
+                    ) : (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-brand-foreground">
+                        {badge}
+                      </span>
+                    ))}
+                </Link>
+              </RailTip>
             </li>
           );
         })}
@@ -108,7 +154,7 @@ function NavGroup({ title, items, pathname, onNavigate }: { title: string; items
   );
 }
 
-function DarkModeSwitch() {
+function DarkModeSwitch({ collapsed = false }: { collapsed?: boolean }) {
   const [dark, setDark] = useState(false);
   // The shell is the only theme control on signed-in pages, so it restores
   // the saved preference (same key as the marketing ThemeToggle).
@@ -123,6 +169,22 @@ function DarkModeSwitch() {
     document.documentElement.classList.toggle('dark', next);
     writeStore('relay-theme', next ? 'dark' : 'light');
   };
+  if (collapsed) {
+    return (
+      <RailTip collapsed label={dark ? 'Dark mode: on' : 'Dark mode: off'}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={dark}
+          aria-label="Dark mode"
+          onClick={toggle}
+          className={clsx('flex w-full items-center justify-center rounded-xl py-2 transition-colors hover:bg-surface-hover', dark ? 'text-accent-signal' : 'text-text-secondary')}
+        >
+          <Moon size={18} className={dark ? 'fill-current' : ''} />
+        </button>
+      </RailTip>
+    );
+  }
   return (
     <button
       type="button"
@@ -148,7 +210,7 @@ function SidebarSearch({ onNavigate }: { onNavigate?: () => void }) {
       role="search"
       onSubmit={(e) => {
         e.preventDefault();
-        router.push(`/dashboard/couriers${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`);
+        router.push(`/search${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`);
         onNavigate?.();
       }}
       className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2"
@@ -171,23 +233,26 @@ function SidebarSearch({ onNavigate }: { onNavigate?: () => void }) {
 function Sidebar({
   pathname,
   handle,
-  requests,
+  deliveries,
   mode,
+  collapsed = false,
+  onToggle,
   onNavigate,
 }: {
   pathname: string;
   handle: string | null;
-  requests: number;
+  deliveries: number;
+  /** Desktop only: icons with tooltips instead of labels. */
+  collapsed?: boolean;
+  onToggle?: () => void;
   mode: DashboardMode;
   onNavigate?: () => void;
 }) {
   const main: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/couriers', label: 'Courier board', icon: Users },
-    { href: '/search', label: 'Send a package', icon: Send },
-    { href: '/shipments', label: 'My shipments', icon: Package, match: '/shipments' },
+    { href: '/search', label: 'Send a package', icon: Send, match: '/dashboard/couriers' },
+    { href: '/deliveries', label: 'Deliveries', icon: Package, badge: deliveries, match: '/deliveries' },
     { href: '/trips', label: 'My trips', icon: Truck, match: '/trips' },
-    { href: '/requests', label: 'Carry requests', icon: Luggage, badge: requests, match: '/legs' },
     { href: '/wallet', label: 'Wallet', icon: Wallet },
   ];
   const account: NavItem[] = [
@@ -201,20 +266,54 @@ function Sidebar({
   ];
 
   return (
-    <div className="flex h-full flex-col px-3 py-5">
-      <Link href="/dashboard" onClick={onNavigate} className="px-3" aria-label="Relay dashboard">
-        <Wordmark className="text-[24px]" />
-      </Link>
-      <div className="mt-5">
-        <SidebarSearch onNavigate={onNavigate} />
+    <div className={clsx('flex h-full flex-col py-5', collapsed ? 'px-2.5' : 'px-3')}>
+      <div className={clsx('flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2 pr-1')}>
+        <Link href="/dashboard" onClick={onNavigate} className={collapsed ? '' : 'px-3'} aria-label="Relay dashboard">
+          {collapsed ? (
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-[20px] font-extra-bold text-brand-foreground">
+              r<span className="text-accent-signal">.</span>
+            </span>
+          ) : (
+            <Wordmark className="text-[24px]" />
+          )}
+        </Link>
+        {onToggle && (
+          <RailTip collapsed={collapsed} label="Expand menu">
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+              aria-expanded={!collapsed}
+              title={collapsed ? undefined : 'Collapse menu  (Ctrl + B)'}
+              className={clsx('flex h-9 items-center justify-center rounded-xl text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-primary', collapsed ? 'w-full' : 'w-9')}
+            >
+              {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            </button>
+          </RailTip>
+        )}
       </div>
-      <nav className="mt-6 flex-1 space-y-6 overflow-y-auto" aria-label="App">
-        <NavGroup title="Main menu" items={main} pathname={pathname} onNavigate={onNavigate} />
-        <NavGroup title="Account" items={account} pathname={pathname} onNavigate={onNavigate} />
-        <NavGroup title="Support" items={support} pathname={pathname} onNavigate={onNavigate} />
+      <div className="mt-5">
+        {collapsed ? (
+          <RailTip collapsed label="Search couriers & cities">
+            <Link
+              href="/search"
+              aria-label="Search couriers and cities"
+              className="flex w-full items-center justify-center rounded-xl border border-border bg-card py-2 text-text-secondary hover:text-text-primary"
+            >
+              <Search size={17} />
+            </Link>
+          </RailTip>
+        ) : (
+          <SidebarSearch onNavigate={onNavigate} />
+        )}
+      </div>
+      <nav className={clsx('mt-6 flex-1 space-y-6 overflow-y-auto', collapsed && 'overflow-x-hidden')} aria-label="App">
+        <NavGroup title="Main menu" items={main} pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavGroup title="Account" items={account} pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavGroup title="Support" items={support} pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />
       </nav>
 
-      <div className="relative mt-4 hidden overflow-hidden rounded-2xl border border-border/70 bg-card p-4 [@media(min-height:860px)]:block">
+      <div className={clsx('relative mt-4 hidden overflow-hidden rounded-2xl border border-border/70 bg-card p-4', !collapsed && '[@media(min-height:860px)]:block')}>
         <div aria-hidden className="absolute inset-x-0 top-0 h-16 bg-gradient-to-br from-brand-subtle via-accent-signal/20 to-transparent" />
         <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-accent-signal">
           {mode === 'sender' ? <HandCoins size={18} /> : <Package size={18} />}
@@ -226,7 +325,7 @@ function Sidebar({
           {mode === 'sender' ? 'List your spare bag space and earn per kilo.' : 'Book space with a verified courier.'}
         </p>
         <Link
-          href={mode === 'sender' ? '/trips/new' : '/search'}
+          href={mode === 'sender' ? '/trips?new=1' : '/search'}
           onClick={onNavigate}
           className="relative mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background py-2 text-body-s font-semi-bold text-text-primary hover:bg-surface"
         >
@@ -235,7 +334,7 @@ function Sidebar({
         </Link>
       </div>
       <div className="mt-3 border-t border-border pt-3">
-        <DarkModeSwitch />
+        <DarkModeSwitch collapsed={collapsed} />
       </div>
     </div>
   );
@@ -433,16 +532,17 @@ function RoleSwitch({ mode, setMode }: { mode: DashboardMode; setMode: (m: Dashb
 }
 
 const TITLES: [string, string][] = [
-  ['/dashboard/couriers', 'Courier board'],
+  ['/dashboard/couriers', 'Send a package'],
   ['/dashboard/people', 'Profile'],
   ['/dashboard/settings', 'Settings'],
   ['/dashboard', 'Dashboard'],
   ['/search', 'Send a package'],
-  ['/shipments', 'My shipments'],
+  ['/deliveries', 'Deliveries'],
+  ['/shipments', 'Deliveries'],
   ['/trips', 'My trips'],
   ['/carry', 'Carry'],
-  ['/requests', 'Carry requests'],
-  ['/legs', 'Leg workspace'],
+  ['/requests', 'Deliveries'],
+  ['/legs', 'Deliveries'],
   ['/wallet', 'Wallet'],
   ['/kyc', 'Verification'],
   ['/admin', 'Operations'],
@@ -453,44 +553,106 @@ const TITLES: [string, string][] = [
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth();
   const pathname = usePathname() ?? '/dashboard';
+  const router = useRouter();
   const [mode, setModeState] = useState<DashboardMode>('sender');
   const [drawer, setDrawer] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  // Animate the width only for clicks, not when restoring the saved state on load.
+  const [railMotion, setRailMotion] = useState(false);
   const [notes, setNotes] = useState<Notification[]>([]);
 
+  // The rail stays the way you left it on this device.
   useEffect(() => {
-    const saved = readStore('relay-mode');
+    setCollapsed(readStore('relay-sidebar') === 'collapsed');
+    const id = requestAnimationFrame(() => setRailMotion(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((c) => {
+      writeStore('relay-sidebar', c ? 'expanded' : 'collapsed');
+      return !c;
+    });
+  }, []);
+  // Ctrl/⌘ + B toggles it, like most editors (ignored while typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleSidebar]);
+
+  // Restore the remembered role, unless the page says which side you're on
+  // (Deliveries → Carrying is the courier side, Sending the sender side).
+  useEffect(() => {
+    const fromUrl = pathname.startsWith('/deliveries/carrying') ? 'courier' : pathname.startsWith('/deliveries/sending') ? 'sender' : null;
+    const saved = fromUrl ?? readStore('relay-mode');
     if (saved === 'courier' || saved === 'sender') setModeState(saved);
+    if (fromUrl) writeStore('relay-mode', fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const setMode = useCallback((m: DashboardMode) => {
     setModeState(m);
     writeStore('relay-mode', m);
   }, []);
 
+  const reloadNotes = useCallback(() => {
+    if (!token) return;
+    api<Notification[]>('/dashboard/notifications', { token })
+      .then(setNotes)
+      .catch(() => undefined);
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
-    const load = () =>
-      api<Notification[]>('/dashboard/notifications', { token })
-        .then(setNotes)
-        .catch(() => undefined);
-    void load();
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
-  }, [token]);
+    reloadNotes();
+    const t = setInterval(reloadNotes, 60_000);
+    // Pages that change what's waiting (accepting or declining a carry
+    // request, paying) ask for a refresh, so badges never lag behind.
+    window.addEventListener('relay:requests-changed', reloadNotes);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('relay:requests-changed', reloadNotes);
+    };
+  }, [token, reloadNotes]);
 
   useEffect(() => setDrawer(false), [pathname]);
 
-  const requests = notes.filter((n) => n.kind === 'REQUEST').length;
+  const counts = deliveryCounts(notes);
+
+  // A deliberate flip of the role switch on Deliveries takes you to that side.
+  const switchRole = useCallback(
+    (m: DashboardMode) => {
+      setMode(m);
+      if (pathname.startsWith('/deliveries')) router.push(m === 'courier' ? '/deliveries/carrying' : '/deliveries/sending', { scroll: false });
+    },
+    [setMode, pathname, router]
+  );
   const title = TITLES.find(([p]) => pathname.startsWith(p))?.[1] ?? 'Relay';
   const firstName = user?.fullName.split(' ')[0];
 
-  const sidebar = (
-    <Sidebar pathname={pathname} handle={user?.handle ?? null} requests={requests} mode={mode} onNavigate={() => setDrawer(false)} />
-  );
+  const sidebarProps = { pathname, handle: user?.handle ?? null, deliveries: counts.carrying + counts.sending, mode };
+  // The phone drawer always shows full labels; only the desktop rail collapses.
+  const sidebar = <Sidebar {...sidebarProps} onNavigate={() => setDrawer(false)} />;
 
   return (
     <ModeContext.Provider value={{ mode, setMode }}>
+      <NotesContext.Provider value={{ notes, refresh: reloadNotes }}>
       <div className="flex min-h-screen bg-surface">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-border/70 bg-surface lg:block">{sidebar}</aside>
+        <aside
+          className={clsx(
+            'sticky top-0 hidden h-screen shrink-0 border-r border-border/70 bg-surface lg:block',
+            railMotion && 'transition-[width] duration-300 ease-out motion-reduce:transition-none',
+            collapsed ? 'w-[76px]' : 'w-64'
+          )}
+        >
+          <Sidebar {...sidebarProps} collapsed={collapsed} onToggle={toggleSidebar} />
+        </aside>
 
         {drawer && (
           <div className="fixed inset-0 z-modal lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
@@ -529,9 +691,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
               <div className="ml-auto flex items-center gap-2 sm:gap-3">
-                <RoleSwitch mode={mode} setMode={setMode} />
+                <RoleSwitch mode={mode} setMode={switchRole} />
                 <Link
-                  href={mode === 'sender' ? '/search' : '/trips/new'}
+                  href={mode === 'sender' ? '/search' : '/trips?new=1'}
                   className="hidden items-center gap-1.5 rounded-full bg-brand px-4 py-2.5 text-body-s font-semi-bold text-brand-foreground hover:bg-brand-focus md:inline-flex"
                 >
                   {mode === 'sender' ? <Send size={14} className="text-accent-signal" /> : <Truck size={14} className="text-accent-signal" />}
@@ -548,6 +710,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      </NotesContext.Provider>
     </ModeContext.Provider>
   );
 }

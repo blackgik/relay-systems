@@ -10,6 +10,7 @@ import {
   Camera,
   CircleAlert,
   Clock,
+  FileText,
   MapPinned,
   MessageCircle,
   Navigation,
@@ -42,6 +43,8 @@ import { ChatPanel } from '@/components/chat-panel';
 import { ScanHandoff } from '@/components/scan-handoff';
 import { EmptyState } from '@/components/empty-state';
 import { RouteMap } from './route-map';
+import { declarationPath } from '@/lib/declaration';
+import { CourierTrust } from '@/components/trust/courier-trust';
 
 const ShipmentMap = dynamic(() => import('@/components/shipment-map').then((m) => m.ShipmentMap), { ssr: false });
 
@@ -60,6 +63,7 @@ export interface TrackData {
     receiverName: string;
     sealId: string | null;
     createdAt: string;
+    attestation?: { reference: string; signedAt: string } | null;
   };
   legs: TrackLeg[];
   custody: TrackEvent[];
@@ -140,6 +144,8 @@ export function ShipmentDetail({
   const fees = legs.reduce((sum, l) => sum + l.fee, 0);
   const stops = [s.originCity, ...legs.map((l) => l.trip.destCity)];
   const action = isSender ? nextAction(s.status) : null;
+  // The courier who most recently said no, and why: shown where the sender decides what to do next.
+  const declined = [...legs].reverse().find((l) => l.status === 'REJECTED');
   const canScanFirst = isSender && s.status === 'FUNDED' && legs[0]?.status === 'AWAITING_PICKUP';
   const hasGps = pings.length > 0 || custody.some((c) => c.lat !== null);
 
@@ -187,6 +193,11 @@ export function ShipmentDetail({
             >
               <MessageCircle size={18} />
             </button>
+          )}
+          {s.attestation && (
+            <Link href={declarationPath(s.id)} aria-label={`Signed declaration ${s.attestation.reference}`} title="Signed declaration (A4)" className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary hover:bg-surface-hover">
+              <FileText size={18} />
+            </Link>
           )}
           {courier && (
             <Link href={`/dashboard/people/${courier}`} aria-label={`View @${courier}`} className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary hover:bg-surface-hover">
@@ -256,12 +267,24 @@ export function ShipmentDetail({
       {action && (
         <div className="tr-fade flex flex-wrap items-center gap-3 rounded-2xl border border-warning-text/20 bg-warning-subtle px-4 py-3">
           <CircleAlert size={18} className="shrink-0 text-warning-text" />
-          <p className="flex-1 text-body-s font-medium text-text-primary">{action}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-body-s font-medium text-text-primary">{action}</p>
+            {s.status === 'REROUTING' && declined?.rejectionReason && (
+              <p className="mt-0.5 break-words text-body-s text-text-secondary">
+                @{declined.trip.carrier?.handle ?? 'courier'} declined: “{declined.rejectionReason}”
+              </p>
+            )}
+          </div>
           {s.status === 'APPROVED' && <Button label="Review & pay into escrow" href={`/shipments/${s.id}/pay`} fit size="sm" />}
           {s.status === 'REROUTING' && <Button label="Pick a new route" href="/search" fit size="sm" />}
           {s.status === 'DELIVERED' && <Button label={busy ? 'Completing…' : 'Confirm & complete'} fit size="sm" disabled={busy} onClick={complete} />}
           {canScanFirst && !scanning && <Button label="Scan courier QR" leftIcon={<ScanLine size={15} />} fit size="sm" onClick={() => setScanning(true)} />}
         </div>
+      )}
+      {isSender && legs.length > 0 && (
+        <Section title={legs.length > 1 ? 'Your couriers' : 'Your courier'}>
+          <CourierTrust shipmentId={s.id} token={token} refreshKey={legs.map((l) => l.status).join()} />
+        </Section>
       )}
       {canScanFirst && scanning && (
         <div className="rounded-2xl border border-border p-5">
@@ -346,6 +369,9 @@ export function ShipmentDetail({
                   <span className={clsx('rounded-full px-2.5 py-1 text-[11px] font-semi-bold', LEG_TONE[l.status] ?? 'bg-muted text-text-secondary')}>
                     {l.status.replaceAll('_', ' ').toLowerCase()}
                   </span>
+                  {l.status === 'REJECTED' && l.rejectionReason && (
+                    <span className="w-full text-[12px] text-destructive">Declined: “{l.rejectionReason}”</span>
+                  )}
                   <button type="button" onClick={() => setChatLeg(l.id)} className="text-[12px] font-semi-bold text-text-link hover:underline dark:text-harbor-200">
                     Chat
                   </button>

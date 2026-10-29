@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from './api';
+import { api, renewToken, setTokenRenewer } from './api';
 import { AuthSession, User } from './types';
 
 const ACCESS_KEY = 'relay_access';
@@ -31,6 +31,16 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** Seconds until a JWT expires (0 if unreadable). */
+function secondsLeft(jwt: string) {
+  try {
+    const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return Math.max(0, payload.exp - Date.now() / 1000);
+  } catch {
+    return 0;
+  }
+}
 
 function readTokens() {
   if (typeof window === 'undefined') return { access: null, refresh: null };
@@ -87,6 +97,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Swap the refresh token for a new pair. A rejected refresh token (expired
+  // or revoked) signs the user out instead of leaving them half signed in.
+  useEffect(() => {
+    setTokenRenewer(async () => {
+      const { refresh } = readTokens();
+      if (!refresh) return null;
+      try {
+        const session = await api<AuthSession>('/auth/refresh', { method: 'POST', body: { refreshToken: refresh } });
+        startSession(session);
+        return session.accessToken;
+      } catch {
+        localStorage.removeItem(ACCESS_KEY);
+        localStorage.removeItem(REFRESH_KEY);
+        setUser(null);
+        setToken(null);
+        return null;
+      }
+    });
+    return () => setTokenRenewer(null);
+  }, [startSession]);
+
+  // Renew a minute before expiry, and again whenever the tab wakes up (timers
+  // don't fire while a laptop sleeps), so sockets and page state stay valid.
+  useEffect(() => {
+    if (!token) return;
+    const renewIfDue = () => {
+      if (secondsLeft(token) < 90) void renewToken();
+    };
+    const timer = window.setTimeout(() => void renewToken(), Math.max(5, secondsLeft(token) - 60) * 1000);
+    document.addEventListener('visibilitychange', renewIfDue);
+    window.addEventListener('focus', renewIfDue);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', renewIfDue);
+      window.removeEventListener('focus', renewIfDue);
+    };
+  }, [token]);
 
   const login = useCallback(
     async (email: string, password: string) => {

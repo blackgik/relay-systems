@@ -58,7 +58,8 @@ export function filterCarriers(trips: BoardItem[], filters: CarrierFilters = {})
   const q = (filters.query ?? '').trim().replace(/^@/, '').toLowerCase();
   const out = trips.filter((t) => {
     if (acceptingOnly && !isAccepting(t)) return false;
-    if (q && !(t.handle ?? '').toLowerCase().includes(q)) return false;
+    // One box searches the courier's username and the cities on the trip.
+    if (q && ![t.handle ?? '', t.originCity, t.destCity].some((v) => v.toLowerCase().includes(q))) return false;
     if (filters.origin && filters.origin !== 'all' && t.originCity !== filters.origin) return false;
     if (filters.destination && filters.destination !== 'all' && t.destCity !== filters.destination)
       return false;

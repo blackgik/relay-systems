@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { FIRST_RELEASE_BPS, INSURANCE_RATE_BPS, PLATFORM_FEE_BPS } from '@relay/shared';
 import * as bcrypt from 'bcryptjs';
@@ -18,6 +19,7 @@ import {
   serializeLedger,
   walletAccountId,
 } from './ledger.service';
+import { InvoiceService } from './invoice.service';
 
 export function platformFeeFor(legFees: number): number {
   return Math.floor((legFees * PLATFORM_FEE_BPS) / 10000);
@@ -32,7 +34,8 @@ export class EscrowService {
   constructor(
     private prisma: PrismaService,
     private ledger: LedgerService,
-    private outbox: OutboxService
+    private outbox: OutboxService,
+    @Optional() private invoices?: InvoiceService
   ) {}
 
   quote(legs: { fee: number }[], declaredValue: number) {
@@ -126,6 +129,7 @@ export class EscrowService {
       await this.outbox.write(tx, 'escrow.funded', { shipmentId, total });
     });
 
+    await this.invoices?.markFunded(shipmentId);
     const updated = await this.prisma.shipment.findUnique({ where: { id: shipmentId } });
     return { duplicate: posted.duplicate, deliveryOtp: otpIssued, shipment: serializeLedger(updated) };
   }
@@ -168,6 +172,7 @@ export class EscrowService {
         },
       ],
     });
+    await this.invoices?.addPayment(legId, Number(amount), leg.fee);
     return serializeLedger({ legId, released: amount });
   }
 
@@ -208,6 +213,7 @@ export class EscrowService {
         },
       ],
     });
+    await this.invoices?.addPayment(legId, Number(remainder), leg.fee);
     return serializeLedger({ legId, released: remainder });
   }
 
@@ -297,6 +303,7 @@ export class EscrowService {
       });
       await this.outbox.write(tx, 'escrow.refunded', { shipmentId });
     });
+    await this.invoices?.markRefunded(shipmentId);
     return { shipmentId, refunded: serializeLedger(escrowBalance) };
   }
 }

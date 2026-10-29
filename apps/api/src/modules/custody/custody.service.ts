@@ -332,7 +332,10 @@ export class CustodyService {
   async track(shipmentId: string, userId: string) {
     const shipment = await this.prisma.shipment.findUnique({
       where: { id: shipmentId },
-      include: { legs: { include: { trip: { select: { carrierId: true } } } } },
+      include: {
+        legs: { include: { trip: { select: { carrierId: true } } } },
+        attestation: { select: { reference: true, signedAt: true } },
+      },
     });
     if (!shipment) throw new NotFoundException('Shipment not found');
     const isParty =

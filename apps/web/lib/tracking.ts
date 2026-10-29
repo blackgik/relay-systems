@@ -12,6 +12,10 @@ export interface TrackLeg {
   fee: number;
   currency: string;
   acceptDeadline: string;
+  /** The sender's 1-5 rating of this delivery, once given. */
+  senderRating?: number | null;
+  /** Why the courier declined this leg, when they did. */
+  rejectionReason?: string | null;
   trip: {
     originCity: string;
     destCity: string;

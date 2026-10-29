@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { OutboxService } from '../../common/outbox/outbox.service';
-import { TripsService } from './trips.service';
+import { TripsService, myTripStats } from './trips.service';
 
 const DAY = 24 * 3600_000;
 
@@ -85,5 +85,62 @@ describe('TripsService', () => {
     expect(prisma.shipment.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'REROUTING' }) })
     );
+  });
+
+  it('journey stages only move forward, and never on a cancelled trip', async () => {
+    const { prisma, service } = buildService();
+    prisma.trip.update.mockImplementation(({ data }: any) => Promise.resolve({ id: 't1', ...data }));
+    prisma.outboxEvent = { create: jest.fn().mockResolvedValue({}) };
+
+    prisma.trip.findUnique.mockResolvedValue({ id: 't1', carrierId: 'u1', status: 'OPEN', journeyStage: 'STARTED' });
+    await expect(service.update('t1', 'u1', { journeyStage: 'NOT_STARTED' })).rejects.toThrow(BadRequestException);
+    await expect(service.update('t1', 'u1', { journeyStage: 'ARRIVED' })).resolves.toMatchObject({ journeyStage: 'ARRIVED' });
+
+    prisma.trip.findUnique.mockResolvedValue({ id: 't1', carrierId: 'u1', status: 'CANCELLED', journeyStage: 'STARTED' });
+    await expect(service.update('t1', 'u1', { journeyStage: 'ARRIVED' })).rejects.toThrow(BadRequestException);
+  });
+
+  it('stores the cannot-transport list and its added fee on create', async () => {
+    const { prisma, service } = buildService();
+    prisma.user.findUnique.mockResolvedValue({ id: 'u1', kycTier: 'T1' });
+    prisma.trip.create.mockImplementation(({ data }: any) => Promise.resolve({ id: 't1', ...data }));
+    const created = await service.create('u1', dto({ excludedItems: [' glass ', ''], excludedFeePerKg: 500 }));
+    expect(created).toMatchObject({ excludedItems: ['glass'], excludedFeePerKg: 500 });
+  });
+});
+
+describe('myTripStats', () => {
+  const leg = (status: string, weightKg: number, fee: number, senderRating: number | null = null) => ({
+    id: `l-${status}-${weightKg}`,
+    status,
+    fee,
+    senderRating,
+    shipment: { id: `s-${weightKg}`, category: 'fabric', weightKg, status: 'X', attestation: { reference: 'RLY-DEC-1' } },
+  });
+
+  it('totals kg and money per trip and averages the delivery ratings', () => {
+    const { stats, packages } = myTripStats([
+      leg('SETTLED', 2.5, 5000, 5),
+      leg('SETTLED', 1, 2000, 4),
+      leg('IN_CUSTODY', 3, 6000),
+      leg('PROPOSED', 4, 8000),
+      leg('REJECTED', 9, 18000),
+    ]);
+    expect(stats).toEqual({
+      packagesCarried: 3,
+      kgCarried: 6.5,
+      earned: 7000,
+      bookedFees: 13000,
+      delivered: 2,
+      rating: 4.5,
+      ratings: 2,
+    });
+    // Requests waiting on the bag are listed; rejected ones are not.
+    expect(packages.map((p) => p.status)).toEqual(['SETTLED', 'SETTLED', 'IN_CUSTODY', 'PROPOSED']);
+    expect(packages[0]).toMatchObject({ weightKg: 2.5, rating: 5, declaration: 'RLY-DEC-1' });
+  });
+
+  it('has no rating until a sender rates a delivery', () => {
+    expect(myTripStats([leg('IN_CUSTODY', 1, 100)]).stats.rating).toBeNull();
   });
 });

@@ -13,9 +13,11 @@ import { CustodyModule } from './modules/custody/custody.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { PeopleModule } from './modules/people/people.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AttestationsModule } from './modules/attestations/attestations.module';
+import { TrustModule } from './modules/trust/trust.module';
 
 @Module({
-  imports: [PrismaModule, IdentityModule, KycModule, TripsModule, RoutingModule, ShipmentsModule, ChatModule, LedgerModule, PspModule, CustodyModule, DisputesModule, PeopleModule, DashboardModule],
+  imports: [PrismaModule, IdentityModule, KycModule, TripsModule, RoutingModule, ShipmentsModule, ChatModule, LedgerModule, PspModule, CustodyModule, DisputesModule, PeopleModule, DashboardModule, AttestationsModule, TrustModule],
   controllers: [AppController],
 })
 export class AppModule {}

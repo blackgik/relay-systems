@@ -30,6 +30,9 @@ export interface BoardItem {
   currency: string;
   categories: string[];
   international: boolean;
+  excludedItems: string[];
+  excludedFeePerKg: number | null;
+  journeyStage: string;
   /** Requests close this long before departure (the courier's answer window). */
   requestBy: string;
   /** Open, has space, and still inside the request window — a request can succeed. */
@@ -141,6 +144,8 @@ export interface Notification {
   id: string;
   kind: 'REQUEST' | 'SHIPMENT' | 'PAYOUT' | 'KYC';
   tone: 'info' | 'success' | 'warning' | 'danger';
+  /** Waiting on you: a request to answer, a shipment to pay, reroute or follow up. */
+  actionable?: boolean;
   title: string;
   body: string;
   href: string;
